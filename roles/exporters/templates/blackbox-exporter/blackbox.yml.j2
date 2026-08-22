@@ -1,0 +1,2 @@
+# Managed by Ansible. Local changes will be overwritten.
+{{ {'modules': (blackbox_modules | default(exporters_blackbox_exporter_modules))} | to_nice_yaml(indent=2, sort_keys=false) }}

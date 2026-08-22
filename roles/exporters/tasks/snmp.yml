@@ -1,0 +1,88 @@
+---
+- name: Validate SNMP Exporter configuration
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.system | default('') == 'Linux'
+      - exporters_snmp_exporter_image | length > 0
+      - exporters_snmp_exporter_web_listen_address | length > 0
+      - exporters_snmp_exporter_config_src | length > 0
+      - exporters_snmp_exporter_user | length > 0
+      - exporters_snmp_exporter_config_group | string | length > 0
+      - exporters_snmp_exporter_module_concurrency | int > 0
+      - exporters_snmp_exporter_pull_policy in ['always', 'missing', 'never', 'policy']
+      - exporters_snmp_exporter_compose_wait_timeout | int > 0
+      - exporters_snmp_exporter_extra_args is sequence
+      - exporters_snmp_exporter_extra_args is not string
+    fail_msg: >-
+      SNMP Exporter requires a Linux Docker host, a generator-produced snmp.yml
+      in exporters_snmp_exporter_config_src, and valid exporters_snmp_exporter_*
+      variables. Gather facts before applying this role.
+
+- name: Create exporter base directories for SNMP Exporter
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - "{{ exporters_observability_dir }}"
+    - "{{ exporters_dir }}"
+
+- name: Create SNMP Exporter directory
+  ansible.builtin.file:
+    path: "{{ exporters_snmp_exporter_dir }}"
+    state: directory
+    owner: root
+    group: "{{ exporters_snmp_exporter_config_group }}"
+    mode: "0750"
+
+- name: Install SNMP Exporter Compose configuration
+  ansible.builtin.copy:
+    src: snmp-exporter/compose.yml
+    dest: "{{ exporters_snmp_exporter_dir }}/compose.yml"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Install SNMP Exporter configuration
+  ansible.builtin.copy:
+    src: "{{ exporters_snmp_exporter_config_src }}"
+    dest: "{{ exporters_snmp_exporter_dir }}/snmp.yml"
+    owner: root
+    group: "{{ exporters_snmp_exporter_config_group }}"
+    mode: "0440"
+  diff: false
+  register: exporters_snmp_exporter_config_copy
+
+- name: Render SNMP Exporter environment file
+  ansible.builtin.template:
+    src: snmp-exporter/.env.j2
+    dest: "{{ exporters_snmp_exporter_dir }}/.env"
+    owner: root
+    group: root
+    mode: "0600"
+
+- name: Validate SNMP Exporter Compose configuration
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - --env-file
+      - "{{ exporters_snmp_exporter_dir }}/.env"
+      - --file
+      - "{{ exporters_snmp_exporter_dir }}/compose.yml"
+      - config
+      - --quiet
+  changed_when: false
+
+- name: Deploy SNMP Exporter
+  community.docker.docker_compose_v2:
+    project_src: "{{ exporters_snmp_exporter_dir }}"
+    state: present
+    pull: "{{ exporters_snmp_exporter_pull_policy }}"
+    recreate: >-
+      {{ 'always' if exporters_snmp_exporter_config_copy.changed else 'auto' }}
+    remove_orphans: true
+    wait: true
+    wait_timeout: "{{ exporters_snmp_exporter_compose_wait_timeout }}"

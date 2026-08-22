@@ -1,0 +1,10 @@
+---
+- name: Configure observability exporters
+  hosts: exporters
+  become: true
+  gather_facts: true
+  roles:
+    - role: exporters
+  tags:
+    - observability
+    - exporters

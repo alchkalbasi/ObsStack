@@ -1,0 +1,110 @@
+---
+# defaults file for exporters
+
+exporters_enabled:
+  node_exporter: false
+  cadvisor: false
+  blackbox_exporter: false
+  snmp_exporter: false
+  postgres_exporter: false
+  heplify: false
+  promtail: false
+  mktxp: false
+
+exporters_observability_dir: /opt/observability
+exporters_dir: "{{ exporters_observability_dir }}/exporters"
+exporters_node_exporter_dir: "{{ exporters_dir }}/node-exporter"
+exporters_cadvisor_dir: "{{ exporters_dir }}/cadvisor"
+exporters_blackbox_exporter_dir: "{{ exporters_dir }}/blackbox-exporter"
+exporters_snmp_exporter_dir: "{{ exporters_dir }}/snmp-exporter"
+
+exporters_node_exporter_image: quay.io/prometheus/node-exporter:v1.12.1
+exporters_node_exporter_container_name: node-exporter
+exporters_node_exporter_restart_policy: unless-stopped
+exporters_node_exporter_web_listen_address: "0.0.0.0:9100"
+exporters_node_exporter_rootfs_path: /host
+exporters_node_exporter_pull_policy: missing
+exporters_node_exporter_compose_wait_timeout: 60
+
+# Keep ephemeral and container-storage mounts out of filesystem metrics.
+exporters_node_exporter_filesystem_mount_points_exclude: >-
+  ^/(dev|proc|run/credentials/.+|sys|var/lib/docker/.+|var/lib/containers/storage/.+)($|/)
+
+exporters_node_exporter_extra_args: []
+exporters_node_exporter_log_max_size: 10m
+exporters_node_exporter_log_max_files: "3"
+
+exporters_cadvisor_image: ghcr.io/google/cadvisor:v0.60.5
+exporters_cadvisor_container_name: cadvisor
+exporters_cadvisor_restart_policy: unless-stopped
+exporters_cadvisor_web_listen_address: "0.0.0.0:8080"
+exporters_cadvisor_docker_data_dir: /var/lib/docker
+exporters_cadvisor_kmsg_device: /dev/kmsg
+exporters_cadvisor_pull_policy: missing
+exporters_cadvisor_compose_wait_timeout: 60
+exporters_cadvisor_extra_args: []
+exporters_cadvisor_log_max_size: 10m
+exporters_cadvisor_log_max_files: "3"
+
+exporters_blackbox_exporter_image: quay.io/prometheus/blackbox-exporter:v0.28.0
+exporters_blackbox_exporter_container_name: blackbox-exporter
+exporters_blackbox_exporter_restart_policy: unless-stopped
+exporters_blackbox_exporter_web_listen_address: "0.0.0.0:9115"
+exporters_blackbox_exporter_pull_policy: missing
+exporters_blackbox_exporter_compose_wait_timeout: 60
+exporters_blackbox_exporter_extra_args: []
+exporters_blackbox_exporter_log_max_size: 10m
+exporters_blackbox_exporter_log_max_files: "3"
+
+exporters_blackbox_exporter_modules:
+  http_2xx:
+    prober: http
+    timeout: 5s
+    http:
+      method: GET
+      fail_if_not_ssl: true
+  tcp_connect:
+    prober: tcp
+    timeout: 5s
+    tcp: {}
+  icmp_ipv4:
+    prober: icmp
+    timeout: 15s
+    icmp:
+      preferred_ip_protocol: ip4
+  dns_lookup:
+    prober: dns
+    timeout: 5s
+    dns:
+      query_name: google.com
+      query_type: A
+      valid_rcodes:
+        - NOERROR
+  ssl_cert:
+    prober: http
+    timeout: 5s
+    http:
+      method: GET
+      fail_if_not_ssl: true
+      tls_config:
+        insecure_skip_verify: false
+
+# snmp.yml should be generated with the generator version matching the exporter
+# image. No insecure community string is provided by default.
+exporters_snmp_exporter_image: quay.io/prometheus/snmp-exporter:v0.30.1
+exporters_snmp_exporter_container_name: snmp-exporter
+exporters_snmp_exporter_restart_policy: unless-stopped
+exporters_snmp_exporter_web_listen_address: "0.0.0.0:9116"
+exporters_snmp_exporter_config_src: "{{ playbook_dir }}/files/snmp/snmp.yml"
+exporters_snmp_exporter_user: "65534:65534"
+exporters_snmp_exporter_config_group: "65534"
+exporters_snmp_exporter_module_concurrency: 1
+exporters_snmp_exporter_pull_policy: missing
+exporters_snmp_exporter_compose_wait_timeout: 60
+exporters_snmp_exporter_extra_args: []
+exporters_snmp_exporter_log_max_size: 10m
+exporters_snmp_exporter_log_max_files: "3"
+exporters_snmp_exporter_healthcheck_interval: 30s
+exporters_snmp_exporter_healthcheck_timeout: 5s
+exporters_snmp_exporter_healthcheck_retries: 3
+exporters_snmp_exporter_healthcheck_start_period: 10s

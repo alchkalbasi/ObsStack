@@ -1,0 +1,63 @@
+---
+# main task file for exporters role
+
+- name: Configure Node Exporter
+  ansible.builtin.import_tasks: node.yml
+  when: exporters_enabled.node_exporter | default(false) | bool
+  tags:
+    - observability
+    - exporters
+    - node-exporter
+
+- name: Configure cAdvisor
+  ansible.builtin.import_tasks: cadvisor.yml
+  when: exporters_enabled.cadvisor | default(false) | bool
+  tags:
+    - observability
+    - exporters
+    - cadvisor
+
+- name: Configure Blackbox Exporter
+  ansible.builtin.import_tasks: blackbox.yml
+  when: exporters_enabled.blackbox_exporter | default(false) | bool
+  tags:
+    - observability
+    - exporters
+    - blackbox-exporter
+
+- name: Configure SNMP Exporter
+  ansible.builtin.import_tasks: snmp.yml
+  when: exporters_enabled.snmp_exporter | default(false) | bool
+  tags:
+    - observability
+    - exporters
+    - snmp-exporter
+    - snmp_exporter
+
+- name: Configure PostgreSQL Exporter
+  ansible.builtin.import_tasks: postgres.yml
+  tags:
+    - observability
+    - exporters
+    - postgres_exporter
+
+- name: Configure Heplify
+  ansible.builtin.import_tasks: heplify.yml
+  tags:
+    - observability
+    - exporters
+    - heplify
+
+- name: Configure Promtail
+  ansible.builtin.import_tasks: promtail.yml
+  tags:
+    - observability
+    - exporters
+    - promtail
+
+- name: Configure MKTXP
+  ansible.builtin.import_tasks: mktxp.yml
+  tags:
+    - observability
+    - exporters
+    - mktxp

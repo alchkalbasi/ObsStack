@@ -1,0 +1,67 @@
+---
+# cAdvisor needs host filesystems, Docker state, and access to kernel devices.
+
+- name: Validate cAdvisor configuration
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.system | default('') == 'Linux'
+      - exporters_cadvisor_image | length > 0
+      - exporters_cadvisor_web_listen_address | length > 0
+      - exporters_cadvisor_docker_data_dir.startswith('/')
+      - exporters_cadvisor_docker_data_dir != '/'
+      - exporters_cadvisor_kmsg_device.startswith('/')
+      - exporters_cadvisor_kmsg_device != '/'
+      - exporters_cadvisor_pull_policy in ['always', 'missing', 'never', 'policy']
+    fail_msg: >-
+      cAdvisor requires a Linux Docker host and valid exporters_cadvisor_*
+      variables. Gather facts before applying this role.
+
+- name: Create cAdvisor directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - "{{ exporters_observability_dir }}"
+    - "{{ exporters_dir }}"
+    - "{{ exporters_cadvisor_dir }}"
+
+- name: Install cAdvisor Compose configuration
+  ansible.builtin.copy:
+    src: cadvisor/compose.yml
+    dest: "{{ exporters_cadvisor_dir }}/compose.yml"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Render cAdvisor environment file
+  ansible.builtin.template:
+    src: cadvisor/.env.j2
+    dest: "{{ exporters_cadvisor_dir }}/.env"
+    owner: root
+    group: root
+    mode: "0600"
+
+- name: Validate cAdvisor Compose configuration
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - --env-file
+      - "{{ exporters_cadvisor_dir }}/.env"
+      - --file
+      - "{{ exporters_cadvisor_dir }}/compose.yml"
+      - config
+      - --quiet
+  changed_when: false
+
+- name: Deploy cAdvisor
+  community.docker.docker_compose_v2:
+    project_src: "{{ exporters_cadvisor_dir }}"
+    state: present
+    pull: "{{ exporters_cadvisor_pull_policy }}"
+    remove_orphans: true
+    wait: true
+    wait_timeout: "{{ exporters_cadvisor_compose_wait_timeout }}"

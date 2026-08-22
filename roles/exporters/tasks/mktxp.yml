@@ -1,0 +1,3 @@
+---
+- name: Mikrotik Exporter (MKTXP) tasks placeholder
+  ansible.builtin.meta: noop
