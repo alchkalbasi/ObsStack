@@ -1,0 +1,3 @@
+---
+# Single-target mode uses environment variables for the connection settings.
+auth_modules: {}

@@ -17,6 +17,8 @@ exporters_node_exporter_dir: "{{ exporters_dir }}/node-exporter"
 exporters_cadvisor_dir: "{{ exporters_dir }}/cadvisor"
 exporters_blackbox_exporter_dir: "{{ exporters_dir }}/blackbox-exporter"
 exporters_snmp_exporter_dir: "{{ exporters_dir }}/snmp-exporter"
+exporters_postgres_exporter_dir: "{{ exporters_dir }}/postgres-exporter"
+exporters_heplify_dir: "{{ exporters_dir }}/heplify"
 
 exporters_node_exporter_image: quay.io/prometheus/node-exporter:v1.12.1
 exporters_node_exporter_container_name: node-exporter
@@ -108,3 +110,103 @@ exporters_snmp_exporter_healthcheck_interval: 30s
 exporters_snmp_exporter_healthcheck_timeout: 5s
 exporters_snmp_exporter_healthcheck_retries: 3
 exporters_snmp_exporter_healthcheck_start_period: 10s
+
+# DATA_SOURCE_URI must not contain credentials. Keep the password in Ansible
+# Vault; the role writes it to a file consumed through DATA_SOURCE_PASS_FILE.
+exporters_postgres_exporter_image: quay.io/prometheuscommunity/postgres-exporter:v0.20.1
+exporters_postgres_exporter_container_name: postgres-exporter
+exporters_postgres_exporter_restart_policy: unless-stopped
+exporters_postgres_exporter_web_listen_address: "0.0.0.0:9187"
+exporters_postgres_exporter_data_source_uri: ""
+exporters_postgres_exporter_data_source_user: postgres_exporter
+exporters_postgres_exporter_data_source_password: ""
+exporters_postgres_exporter_user: "65534:65534"
+exporters_postgres_exporter_secret_group: "65534"
+exporters_postgres_exporter_collection_timeout: 10s
+exporters_postgres_exporter_pull_policy: missing
+exporters_postgres_exporter_compose_wait_timeout: 60
+exporters_postgres_exporter_extra_args: []
+exporters_postgres_exporter_log_max_size: 10m
+exporters_postgres_exporter_log_max_files: "3"
+exporters_postgres_exporter_healthcheck_url: http://127.0.0.1:9187/
+exporters_postgres_exporter_healthcheck_interval: 30s
+exporters_postgres_exporter_healthcheck_timeout: 5s
+exporters_postgres_exporter_healthcheck_retries: 3
+exporters_postgres_exporter_healthcheck_start_period: 10s
+
+# Heplify is installed as an upstream release binary rather than a container.
+# Set exporters_heplify_binary_src to a controller-side file for offline installs.
+exporters_heplify_version: "2.0.27"
+exporters_heplify_architecture_map:
+  x86_64: amd64
+  amd64: amd64
+  aarch64: arm64
+  arm64: arm64
+exporters_heplify_architecture: >-
+  {{ exporters_heplify_architecture_map.get(ansible_architecture | default(''), '') }}
+exporters_heplify_binary_src: ""
+exporters_heplify_binary_url: >-
+  https://github.com/sipcapture/heplify/releases/download/{{ exporters_heplify_version }}/heplify_linux_{{ exporters_heplify_architecture }}
+exporters_heplify_binary_checksums:
+  amd64: 7e6210e86d0ff619a23f362e4cb225071459a27ca5fb3e5d5247ca3926217bc8
+  arm64: 477b0ce112f9be1a165e2606c03dd5947297a30cea460be82c1e12b8a58d8a1e
+exporters_heplify_binary_checksum: >-
+  sha256:{{ exporters_heplify_binary_checksums.get(exporters_heplify_architecture, '') }}
+exporters_heplify_binary_dest: /usr/local/bin/heplify
+exporters_heplify_download_timeout: 60
+exporters_heplify_config_path: "{{ exporters_heplify_dir }}/heplify.json"
+exporters_heplify_data_dir: /var/lib/heplify
+exporters_heplify_service_name: heplify
+exporters_heplify_service_path: /etc/systemd/system/heplify.service
+exporters_heplify_restart_policy: always
+exporters_heplify_restart_seconds: 3
+
+exporters_heplify_capture_device: any
+exporters_heplify_capture_type: afpacket
+exporters_heplify_capture_modes:
+  - SIP
+  - RTCP
+exporters_heplify_hep_host: 127.0.0.1
+exporters_heplify_hep_port: 9060
+exporters_heplify_hep_transport: udp
+exporters_heplify_hep_password: ""
+exporters_heplify_node_id: 2002
+exporters_heplify_node_name: "{{ inventory_hostname }}"
+exporters_heplify_log_level: info
+exporters_heplify_prometheus_enabled: true
+exporters_heplify_prometheus_host: 0.0.0.0
+exporters_heplify_prometheus_port: 9096
+
+# Override this mapping when advanced Heplify features are needed. It is
+# serialized directly to JSON; protect secrets in inventory with Ansible Vault.
+exporters_heplify_config:
+  socket:
+    - name: default
+      active: true
+      socket_type: "{{ exporters_heplify_capture_type }}"
+      transport_profile:
+        - homer
+      device: "{{ exporters_heplify_capture_device }}"
+      capture_mode: "{{ exporters_heplify_capture_modes }}"
+  transport:
+    - name: homer
+      active: true
+      failover_only: false
+      protocol: HEPv3
+      host: "{{ exporters_heplify_hep_host }}"
+      transport: "{{ exporters_heplify_hep_transport }}"
+      port: "{{ exporters_heplify_hep_port }}"
+      password: "{{ exporters_heplify_hep_password }}"
+  log_settings:
+    active: true
+    level: "{{ exporters_heplify_log_level }}"
+    stdout: true
+  system_settings:
+    node_name: "{{ exporters_heplify_node_name }}"
+    node_id: "{{ exporters_heplify_node_id }}"
+    node_pw: "{{ exporters_heplify_hep_password }}"
+  prometheus_settings:
+    active: "{{ exporters_heplify_prometheus_enabled }}"
+    host: "{{ exporters_heplify_prometheus_host }}"
+    port: "{{ exporters_heplify_prometheus_port }}"
+    auth: false

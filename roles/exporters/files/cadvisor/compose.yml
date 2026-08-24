@@ -1,0 +1,24 @@
+---
+services:
+  cadvisor:
+    image: "${CADVISOR_IMAGE:?CADVISOR_IMAGE must be set}"
+    container_name: "${CADVISOR_CONTAINER_NAME:-cadvisor}"
+    command: >-
+      ${CADVISOR_EXTRA_ARGS:-}
+    ports:
+      - "${CADVISOR_WEB_LISTEN_ADDRESS:-0.0.0.0:8080}:8080"
+    privileged: true
+    restart: "${CADVISOR_RESTART_POLICY:-unless-stopped}"
+    devices:
+      - "${CADVISOR_KMSG_DEVICE:-/dev/kmsg}:/dev/kmsg"
+    volumes:
+      - "/:/rootfs:ro"
+      - "/var/run:/var/run:ro"
+      - "/sys:/sys:ro"
+      - "${CADVISOR_DOCKER_DATA_DIR:-/var/lib/docker}:/var/lib/docker:ro"
+      - "/dev/disk:/dev/disk:ro"
+    logging:
+      driver: json-file
+      options:
+        max-size: "${CADVISOR_LOG_MAX_SIZE:-10m}"
+        max-file: "${CADVISOR_LOG_MAX_FILES:-3}"

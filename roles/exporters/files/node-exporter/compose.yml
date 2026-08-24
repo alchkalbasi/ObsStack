@@ -1,0 +1,26 @@
+---
+services:
+  node-exporter:
+    image: "${NODE_EXPORTER_IMAGE:?NODE_EXPORTER_IMAGE must be set}"
+    container_name: "${NODE_EXPORTER_CONTAINER_NAME:-node-exporter}"
+    command: >-
+      '--path.rootfs=${NODE_EXPORTER_ROOTFS_PATH:-/host}'
+      '--web.listen-address=${NODE_EXPORTER_WEB_LISTEN_ADDRESS:-0.0.0.0:9100}'
+      '--collector.filesystem.mount-points-exclude=${NODE_EXPORTER_FILESYSTEM_MOUNT_POINTS_EXCLUDE}'
+      ${NODE_EXPORTER_EXTRA_ARGS:-}
+    network_mode: host
+    pid: host
+    uts: host
+    restart: "${NODE_EXPORTER_RESTART_POLICY:-unless-stopped}"
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    volumes:
+      - "/:${NODE_EXPORTER_ROOTFS_PATH:-/host}:ro,rslave"
+    logging:
+      driver: json-file
+      options:
+        max-size: "${NODE_EXPORTER_LOG_MAX_SIZE:-10m}"
+        max-file: "${NODE_EXPORTER_LOG_MAX_FILES:-3}"

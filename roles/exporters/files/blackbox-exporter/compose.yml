@@ -1,0 +1,26 @@
+---
+services:
+  blackbox-exporter:
+    image: "${BLACKBOX_EXPORTER_IMAGE:?BLACKBOX_EXPORTER_IMAGE must be set}"
+    container_name: "${BLACKBOX_EXPORTER_CONTAINER_NAME:-blackbox-exporter}"
+    command: >-
+      '--config.file=/etc/blackbox_exporter/blackbox.yml'
+      '--web.listen-address=0.0.0.0:9115'
+      ${BLACKBOX_EXPORTER_EXTRA_ARGS:-}
+    ports:
+      - "${BLACKBOX_EXPORTER_WEB_LISTEN_ADDRESS:-0.0.0.0:9115}:9115"
+    restart: "${BLACKBOX_EXPORTER_RESTART_POLICY:-unless-stopped}"
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_RAW
+    volumes:
+      - "./blackbox.yml:/etc/blackbox_exporter/blackbox.yml:ro"
+    logging:
+      driver: json-file
+      options:
+        max-size: "${BLACKBOX_EXPORTER_LOG_MAX_SIZE:-10m}"
+        max-file: "${BLACKBOX_EXPORTER_LOG_MAX_FILES:-3}"

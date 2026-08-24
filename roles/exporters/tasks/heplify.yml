@@ -1,3 +1,97 @@
 ---
-- name: Heplify tasks placeholder
-  ansible.builtin.meta: noop
+- name: Validate Heplify configuration
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.system | default('') == 'Linux'
+      - ansible_facts.service_mgr | default('') == 'systemd'
+      - exporters_heplify_architecture in ['amd64', 'arm64']
+      - exporters_heplify_binary_src | length > 0 or exporters_heplify_binary_url | length > 0
+      - exporters_heplify_binary_src | length > 0 or exporters_heplify_binary_checksum | regex_search('^sha256:[0-9a-fA-F]{64}$')
+      - exporters_heplify_binary_dest.startswith('/')
+      - exporters_heplify_config_path.startswith('/')
+      - exporters_heplify_data_dir.startswith('/')
+      - exporters_heplify_download_timeout | int > 0
+      - exporters_heplify_restart_policy in ['no', 'always', 'on-failure', 'on-abnormal', 'on-abort', 'on-watchdog']
+      - exporters_heplify_restart_seconds | int >= 0
+      - exporters_heplify_config is mapping
+      - exporters_heplify_config.socket is defined
+      - exporters_heplify_config.socket is sequence
+      - exporters_heplify_config.socket | length > 0
+      - exporters_heplify_config.transport is defined
+      - exporters_heplify_config.transport is sequence
+      - exporters_heplify_config.transport | length > 0
+      - exporters_heplify_prometheus_port | int > 0
+      - exporters_heplify_prometheus_port | int <= 65535
+    fail_msg: >-
+      Heplify requires Linux with systemd, an amd64 or arm64 release binary,
+      and valid exporters_heplify_* variables. Gather facts before applying
+      this role.
+
+- name: Create Heplify directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - "{{ exporters_observability_dir }}"
+    - "{{ exporters_dir }}"
+    - "{{ exporters_heplify_dir }}"
+    - "{{ exporters_heplify_data_dir }}"
+
+- name: Install controller-provided Heplify binary
+  ansible.builtin.copy:
+    src: "{{ exporters_heplify_binary_src }}"
+    dest: "{{ exporters_heplify_binary_dest }}"
+    owner: root
+    group: root
+    mode: "0755"
+  when: exporters_heplify_binary_src | length > 0
+  notify: Restart Heplify
+
+- name: Download Heplify release binary
+  ansible.builtin.get_url:
+    url: "{{ exporters_heplify_binary_url }}"
+    dest: "{{ exporters_heplify_binary_dest }}"
+    checksum: "{{ exporters_heplify_binary_checksum | default(omit, true) }}"
+    owner: root
+    group: root
+    mode: "0755"
+    timeout: "{{ exporters_heplify_download_timeout }}"
+  when: exporters_heplify_binary_src | length == 0
+  notify: Restart Heplify
+
+- name: Verify installed Heplify binary
+  ansible.builtin.command:
+    argv:
+      - "{{ exporters_heplify_binary_dest }}"
+      - -version
+  changed_when: false
+
+- name: Render Heplify configuration
+  ansible.builtin.template:
+    src: heplify/heplify.json.j2
+    dest: "{{ exporters_heplify_config_path }}"
+    owner: root
+    group: root
+    mode: "0600"
+  diff: false
+  no_log: true
+  notify: Restart Heplify
+
+- name: Install Heplify systemd service
+  ansible.builtin.template:
+    src: heplify/heplify.service.j2
+    dest: "{{ exporters_heplify_service_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart Heplify
+
+- name: Enable and start Heplify
+  ansible.builtin.systemd_service:
+    name: "{{ exporters_heplify_service_name }}"
+    enabled: true
+    state: started
+    daemon_reload: true

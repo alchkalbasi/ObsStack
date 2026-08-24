@@ -32,17 +32,18 @@
     - observability
     - exporters
     - snmp-exporter
-    - snmp_exporter
 
 - name: Configure PostgreSQL Exporter
   ansible.builtin.import_tasks: postgres.yml
+  when: exporters_enabled.postgres_exporter | default(false) | bool
   tags:
     - observability
     - exporters
-    - postgres_exporter
+    - postgres-exporter
 
 - name: Configure Heplify
   ansible.builtin.import_tasks: heplify.yml
+  when: exporters_enabled.heplify | default(false) | bool
   tags:
     - observability
     - exporters

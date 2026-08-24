@@ -9,9 +9,9 @@
         - [ ] test
     - [x] snmp
         - [ ] test
-    - [ ] postgres
+    - [x] postgres
         - [ ] test
-    - [ ] heplify
+    - [x] heplify
         - [ ] test
     - [ ] promtail
         - [ ] test
