@@ -51,6 +51,7 @@
 
 - name: Configure Promtail
   ansible.builtin.import_tasks: promtail.yml
+  when: exporters_enabled.promtail | default(false) | bool
   tags:
     - observability
     - exporters
@@ -58,6 +59,7 @@
 
 - name: Configure MKTXP
   ansible.builtin.import_tasks: mktxp.yml
+  when: exporters_enabled.mktxp | default(false) | bool
   tags:
     - observability
     - exporters

@@ -1,8 +1,8 @@
 # Exporters role
 
 Deploys Node Exporter, cAdvisor, Blackbox Exporter, SNMP Exporter, PostgreSQL
-Exporter, and Heplify. The first five services use Docker Compose; Heplify uses
-the upstream standalone Linux binary and systemd.
+Exporter, Heplify, Promtail, and MKTXP. The containerized services use Docker Compose;
+Heplify uses the upstream standalone Linux binary and systemd.
 
 For each containerized service, the role installs a static `compose.yml` and
 renders host-specific values into a separate `.env` file. For Heplify, it
@@ -171,6 +171,44 @@ runs as root with only `CAP_NET_ADMIN` and `CAP_NET_RAW` retained because live
 packet capture requires those capabilities. Restrict the Prometheus listen
 address with the host firewall or bind it to a trusted interface.
 
+## Promtail variables
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `exporters_enabled.promtail` | `false` | Enables Promtail deployment on a host |
+| `exporters_promtail_image` | `grafana/promtail:3.5.8` | Pinned Promtail image reference |
+| `exporters_promtail_client_url` | empty (required when enabled) | Loki `/loki/api/v1/push` endpoint |
+| `exporters_promtail_web_listen_address` | `0.0.0.0:9080` | Promtail metrics and readiness endpoint address |
+| `exporters_promtail_config` | generated baseline mapping | Complete Promtail configuration for extra scrape jobs or pipeline stages |
+| `exporters_promtail_pull_policy` | `missing` | Compose image pull behavior |
+| `exporters_promtail_extra_args` | `[]` | Additional Promtail CLI arguments |
+
+The default configuration tails `/var/log/*.log` and Docker JSON logs, adding
+`job` and `host` labels. It stores read positions under the exporter directory,
+so a container replacement does not resend the whole log history. Promtail has
+read-only access to host logs and all Linux capabilities dropped. Keep the Loki
+endpoint on a private network or use HTTPS and authentication in an overridden
+`exporters_promtail_config` stored with Ansible Vault.
+
+## MKTXP variables
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `exporters_enabled.mktxp` | `false` | Enables MKTXP deployment on a host |
+| `exporters_mktxp_image` | `ghcr.io/akpw/mktxp:1.2.20` | Pinned MKTXP image reference |
+| `exporters_mktxp_web_listen_address` | `0.0.0.0:49090` | Host address and port used by Prometheus |
+| `exporters_mktxp_routers` | `[]` (required when enabled) | Router name, API endpoint, and credentials |
+| `exporters_mktxp_default_router_config` | baseline collector settings | Defaults applied to each router |
+| `exporters_mktxp_system_config` | baseline server settings | MKTXP exporter process configuration |
+| `exporters_mktxp_pull_policy` | `missing` | Compose image pull behavior |
+
+Each router entry requires `name`, `hostname`, `username`, and `password`;
+`options` can override any MKTXP router-level setting. Store credentials in
+Ansible Vault. The container runs as its upstream unprivileged UID 1000 and has
+read-only access to its two configuration files with all Linux capabilities
+dropped. Create a dedicated MikroTik API user with only the `api` and `read`
+permissions, and limit API access to the exporter host.
+
 ## Example
 
 ```yaml
@@ -181,6 +219,8 @@ exporters_enabled:
   snmp_exporter: true
   postgres_exporter: true
   heplify: true
+  promtail: true
+  mktxp: true
 
 exporters_node_exporter_web_listen_address: "192.0.2.10:9100"
 exporters_node_exporter_extra_args:
@@ -199,6 +239,15 @@ exporters_heplify_capture_device: eth0
 exporters_heplify_hep_host: "192.0.2.20"
 exporters_heplify_hep_password: "{{ vault_hep_password }}"
 exporters_heplify_prometheus_host: "192.0.2.10"
+exporters_promtail_client_url: "https://loki.example.net/loki/api/v1/push"
+exporters_mktxp_routers:
+  - name: edge-router
+    hostname: "192.0.2.1"
+    username: mktxp
+    password: "{{ vault_mktxp_edge_router_password }}"
+    options:
+      use_ssl: true
+      ssl_certificate_verify: true
 ```
 
 Run only this exporter with:
@@ -216,3 +265,7 @@ Use `--tags snmp-exporter` to run only SNMP Exporter.
 Use `--tags postgres-exporter` to run only PostgreSQL Exporter.
 
 Use `--tags heplify` to run only Heplify.
+
+Use `--tags promtail` to run only Promtail.
+
+Use `--tags mktxp` to run only MKTXP.

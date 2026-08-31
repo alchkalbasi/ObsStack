@@ -1,0 +1,26 @@
+---
+services:
+  promtail:
+    image: "${PROMTAIL_IMAGE:?PROMTAIL_IMAGE must be set}"
+    container_name: "${PROMTAIL_CONTAINER_NAME:-promtail}"
+    command: >-
+      '-config.file=/etc/promtail/promtail.yml'
+      '-config.expand-env=false'
+      ${PROMTAIL_EXTRA_ARGS:-}
+    network_mode: host
+    restart: "${PROMTAIL_RESTART_POLICY:-unless-stopped}"
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    volumes:
+      - "./promtail.yml:/etc/promtail/promtail.yml:ro"
+      - "./positions:/run/promtail:rw"
+      - "/var/log:/var/log:ro"
+      - "/var/lib/docker/containers:/var/lib/docker/containers:ro"
+    logging:
+      driver: json-file
+      options:
+        max-size: "${PROMTAIL_LOG_MAX_SIZE:-10m}"
+        max-file: "${PROMTAIL_LOG_MAX_FILES:-3}"

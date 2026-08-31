@@ -19,6 +19,8 @@ exporters_blackbox_exporter_dir: "{{ exporters_dir }}/blackbox-exporter"
 exporters_snmp_exporter_dir: "{{ exporters_dir }}/snmp-exporter"
 exporters_postgres_exporter_dir: "{{ exporters_dir }}/postgres-exporter"
 exporters_heplify_dir: "{{ exporters_dir }}/heplify"
+exporters_promtail_dir: "{{ exporters_dir }}/promtail"
+exporters_mktxp_dir: "{{ exporters_dir }}/mktxp"
 
 exporters_node_exporter_image: quay.io/prometheus/node-exporter:v1.12.1
 exporters_node_exporter_container_name: node-exporter
@@ -210,3 +212,145 @@ exporters_heplify_config:
     host: "{{ exporters_heplify_prometheus_host }}"
     port: "{{ exporters_heplify_prometheus_port }}"
     auth: false
+
+# Promtail reads host and Docker JSON logs and forwards them to Loki. Override
+# exporters_promtail_config for additional scrape jobs or pipeline stages.
+exporters_promtail_image: grafana/promtail:3.5.8
+exporters_promtail_container_name: promtail
+exporters_promtail_restart_policy: unless-stopped
+exporters_promtail_web_listen_address: "0.0.0.0:9080"
+exporters_promtail_client_url: ""
+exporters_promtail_positions_dir: "{{ exporters_promtail_dir }}/positions"
+exporters_promtail_pull_policy: missing
+exporters_promtail_compose_wait_timeout: 60
+exporters_promtail_extra_args: []
+exporters_promtail_log_max_size: 10m
+exporters_promtail_log_max_files: "3"
+exporters_promtail_config:
+  server:
+    http_listen_address: "{{ exporters_promtail_web_listen_address.split(':')[0] }}"
+    http_listen_port: "{{ exporters_promtail_web_listen_address.split(':')[-1] | int }}"
+    grpc_listen_port: 0
+  positions:
+    filename: /run/promtail/positions.yaml
+  clients:
+    - url: "{{ exporters_promtail_client_url }}"
+  scrape_configs:
+    - job_name: varlogs
+      static_configs:
+        - targets:
+            - localhost
+          labels:
+            job: varlogs
+            host: "{{ inventory_hostname }}"
+            __path__: /var/log/*.log
+    - job_name: docker
+      static_configs:
+        - targets:
+            - localhost
+          labels:
+            job: docker
+            host: "{{ inventory_hostname }}"
+            __path__: /var/lib/docker/containers/*/*.log
+      pipeline_stages:
+        - docker: {}
+
+# MKTXP collects RouterOS metrics over the MikroTik API. Each router requires a
+# dedicated API user; keep exporters_mktxp_routers passwords in Ansible Vault.
+exporters_mktxp_image: ghcr.io/akpw/mktxp:1.2.20
+exporters_mktxp_container_name: mktxp
+exporters_mktxp_restart_policy: unless-stopped
+exporters_mktxp_web_listen_address: "0.0.0.0:49090"
+exporters_mktxp_container_listen_address: "0.0.0.0:49090"
+exporters_mktxp_config_group: "1000"
+exporters_mktxp_pull_policy: missing
+exporters_mktxp_compose_wait_timeout: 60
+exporters_mktxp_log_max_size: 10m
+exporters_mktxp_log_max_files: "3"
+exporters_mktxp_routers: []
+exporters_mktxp_default_router_config:
+  enabled: true
+  module_only: false
+  port: 8728
+  credentials_file: ""
+  custom_labels: None
+  use_ssl: false
+  no_ssl_certificate: false
+  ssl_certificate_verify: false
+  ssl_check_hostname: true
+  ssl_ca_file: ""
+  plaintext_login: true
+  health: true
+  installed_packages: true
+  dhcp: true
+  dhcp_lease: true
+  connections: true
+  connection_stats: false
+  connection_stats_destinations: false
+  interface: true
+  interface_with_default_name: false
+  routerboard: false
+  wireguard_peers: false
+  bridge_vlan: false
+  route: true
+  pool: true
+  firewall: true
+  neighbor: true
+  address_list: None
+  dns: false
+  ipv6_route: false
+  ipv6_pool: false
+  ipv6_firewall: false
+  ipv6_neighbor: false
+  ipv6_address_list: None
+  poe: true
+  monitor: true
+  netwatch: true
+  public_ip: true
+  wireless: true
+  wireless_clients: true
+  capsman: true
+  capsman_clients: true
+  w60g: false
+  eoip: false
+  gre: false
+  ipip: false
+  lte: false
+  ipsec: false
+  switch_port: false
+  kid_control_assigned: false
+  kid_control_dynamic: false
+  user: true
+  queue: true
+  bfd: false
+  bgp: false
+  routing_stats: false
+  certificate: false
+  container: false
+  remote_dhcp_entry: None
+  remote_capsman_entry: None
+  interface_name_format: name
+  check_for_updates: false
+exporters_mktxp_system_config:
+  listen: "{{ exporters_mktxp_container_listen_address }}"
+  socket_timeout: 5
+  initial_delay_on_failure: 120
+  max_delay_on_failure: 900
+  delay_inc_div: 5
+  bandwidth: false
+  bandwidth_test_dns_server: 8.8.8.8
+  bandwidth_test_interval: 600
+  minimal_collect_interval: 5
+  verbose_mode: false
+  fetch_routers_in_parallel: false
+  max_worker_threads: 5
+  max_scrape_duration: 30
+  total_max_scrape_duration: 90
+  http_server_threads: 16
+  persistent_router_connection_pool: true
+  persistent_dhcp_cache: true
+  compact_default_conf_values: false
+  prometheus_headers_deduplication: false
+  probe_connection_pool: false
+  probe_connection_pool_ttl: 300
+  probe_connection_pool_max_size: 128

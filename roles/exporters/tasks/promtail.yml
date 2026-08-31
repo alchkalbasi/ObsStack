@@ -1,3 +1,87 @@
 ---
-- name: Promtail tasks placeholder
-  ansible.builtin.meta: noop
+- name: Validate Promtail configuration
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.system | default('') == 'Linux'
+      - exporters_promtail_image | length > 0
+      - exporters_promtail_web_listen_address | length > 0
+      - exporters_promtail_client_url | length > 0
+      - exporters_promtail_config is mapping
+      - exporters_promtail_restart_policy in ['no', 'always', 'on-failure', 'unless-stopped']
+      - exporters_promtail_pull_policy in ['always', 'missing', 'never', 'policy']
+      - exporters_promtail_compose_wait_timeout | int > 0
+      - exporters_promtail_extra_args is sequence
+      - exporters_promtail_extra_args is not string
+    fail_msg: >-
+      Promtail requires a Linux Docker host, a Loki push URL, and valid
+      exporters_promtail_* variables. Gather facts before applying this role.
+
+- name: Create exporter base directories for Promtail
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - "{{ exporters_observability_dir }}"
+    - "{{ exporters_dir }}"
+    - "{{ exporters_promtail_dir }}"
+
+- name: Create Promtail positions directory
+  ansible.builtin.file:
+    path: "{{ exporters_promtail_positions_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+
+- name: Install Promtail Compose configuration
+  ansible.builtin.copy:
+    src: promtail/compose.yml
+    dest: "{{ exporters_promtail_dir }}/compose.yml"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Render Promtail configuration
+  ansible.builtin.template:
+    src: promtail/promtail.yml.j2
+    dest: "{{ exporters_promtail_dir }}/promtail.yml"
+    owner: root
+    group: root
+    mode: "0600"
+  diff: false
+  no_log: true
+  register: exporters_promtail_config_template
+
+- name: Render Promtail environment file
+  ansible.builtin.template:
+    src: promtail/.env.j2
+    dest: "{{ exporters_promtail_dir }}/.env"
+    owner: root
+    group: root
+    mode: "0600"
+
+- name: Validate Promtail Compose configuration
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - --env-file
+      - "{{ exporters_promtail_dir }}/.env"
+      - --file
+      - "{{ exporters_promtail_dir }}/compose.yml"
+      - config
+      - --quiet
+  changed_when: false
+
+- name: Deploy Promtail
+  community.docker.docker_compose_v2:
+    project_src: "{{ exporters_promtail_dir }}"
+    state: present
+    pull: "{{ exporters_promtail_pull_policy }}"
+    recreate: "{{ 'always' if exporters_promtail_config_template.changed else 'auto' }}"
+    remove_orphans: true
+    wait: true
+    wait_timeout: "{{ exporters_promtail_compose_wait_timeout }}"
