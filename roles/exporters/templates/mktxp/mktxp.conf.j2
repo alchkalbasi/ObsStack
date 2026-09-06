@@ -1,0 +1,16 @@
+# Managed by Ansible. Local changes will be overwritten.
+[default]
+{% for key, value in exporters_mktxp_default_router_config | dictsort %}
+{{ key }} = {{ value | to_json }}
+{% endfor %}
+
+{% for router in exporters_mktxp_routers %}
+[{{ router.name }}]
+hostname = {{ router.hostname | to_json }}
+username = {{ router.username | to_json }}
+password = {{ router.password | to_json }}
+{% for key, value in router.options | default({}) | dictsort %}
+{{ key }} = {{ value | to_json }}
+{% endfor %}
+
+{% endfor %}

@@ -1,0 +1,42 @@
+---
+services:
+  postgres-exporter:
+    image: "${POSTGRES_EXPORTER_IMAGE:?POSTGRES_EXPORTER_IMAGE must be set}"
+    container_name: "${POSTGRES_EXPORTER_CONTAINER_NAME:-postgres-exporter}"
+    user: "${POSTGRES_EXPORTER_USER:-65534:65534}"
+    command: >-
+      --config.file=/etc/postgres_exporter/postgres_exporter.yml
+      --web.listen-address=${POSTGRES_EXPORTER_WEB_LISTEN_ADDRESS:-127.0.0.1:9187}
+      ${POSTGRES_EXPORTER_EXTRA_ARGS:-}
+    network_mode: host
+    environment:
+      DATA_SOURCE_URI: "${POSTGRES_EXPORTER_DATA_SOURCE_URI:?POSTGRES_EXPORTER_DATA_SOURCE_URI must be set}"
+      DATA_SOURCE_USER: "${POSTGRES_EXPORTER_DATA_SOURCE_USER:?POSTGRES_EXPORTER_DATA_SOURCE_USER must be set}"
+      DATA_SOURCE_PASS_FILE: /run/secrets/postgres_exporter_data_source_pass
+      PG_EXPORTER_COLLECTION_TIMEOUT: "${POSTGRES_EXPORTER_COLLECTION_TIMEOUT:-10s}"
+    restart: "${POSTGRES_EXPORTER_RESTART_POLICY:-unless-stopped}"
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    volumes:
+      - "./postgres_exporter.yml:/etc/postgres_exporter/postgres_exporter.yml:ro"
+      - "./data-source-pass:/run/secrets/postgres_exporter_data_source_pass:ro"
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - -q
+        - -O
+        - /dev/null
+        - "${POSTGRES_EXPORTER_HEALTHCHECK_URL:-http://127.0.0.1:9187/}"
+      interval: "${POSTGRES_EXPORTER_HEALTHCHECK_INTERVAL:-30s}"
+      timeout: "${POSTGRES_EXPORTER_HEALTHCHECK_TIMEOUT:-5s}"
+      retries: ${POSTGRES_EXPORTER_HEALTHCHECK_RETRIES:-3}
+      start_period: "${POSTGRES_EXPORTER_HEALTHCHECK_START_PERIOD:-10s}"
+    logging:
+      driver: json-file
+      options:
+        max-size: "${POSTGRES_EXPORTER_LOG_MAX_SIZE:-10m}"
+        max-file: "${POSTGRES_EXPORTER_LOG_MAX_FILES:-3}"

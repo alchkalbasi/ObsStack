@@ -1,0 +1,21 @@
+---
+services:
+  mktxp:
+    image: "${MKTXP_IMAGE:?MKTXP_IMAGE must be set}"
+    container_name: "${MKTXP_CONTAINER_NAME:-mktxp}"
+    restart: "${MKTXP_RESTART_POLICY:-unless-stopped}"
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    ports:
+      - "${MKTXP_WEB_LISTEN_ADDRESS:?MKTXP_WEB_LISTEN_ADDRESS must be set}:49090"
+    volumes:
+      - "./mktxp.conf:/etc/mktxp/mktxp.conf:ro"
+      - "./_mktxp.conf:/etc/mktxp/_mktxp.conf:ro"
+    logging:
+      driver: json-file
+      options:
+        max-size: "${MKTXP_LOG_MAX_SIZE:-10m}"
+        max-file: "${MKTXP_LOG_MAX_FILES:-3}"

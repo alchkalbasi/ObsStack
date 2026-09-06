@@ -1,0 +1,119 @@
+---
+- name: Validate MKTXP configuration
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.system | default('') == 'Linux'
+      - exporters_mktxp_image | length > 0
+      - exporters_mktxp_bind_ip | length > 0
+      - exporters_mktxp_web_listen_address | length > 0
+      - exporters_mktxp_container_listen_address | length > 0
+      - exporters_mktxp_routers is sequence
+      - exporters_mktxp_routers is not string
+      - exporters_mktxp_routers | length > 0
+      - exporters_mktxp_system_config is mapping
+      - exporters_mktxp_restart_policy in ['no', 'always', 'on-failure', 'unless-stopped']
+      - exporters_mktxp_pull_policy in ['always', 'missing', 'never', 'policy']
+      - exporters_mktxp_compose_wait_timeout | int > 0
+    fail_msg: >-
+      MKTXP requires a Linux Docker host, at least one router with API
+      credentials, and valid exporters_mktxp_* variables. Store router
+      passwords with Ansible Vault and gather facts before applying this role.
+
+- name: Validate MKTXP router entries
+  ansible.builtin.assert:
+    that:
+      - item is mapping
+      - item.name | default('') | length > 0
+      - item.hostname | default('') | length > 0
+      - item.username | default('') | length > 0
+      - item.password | default('') | length > 0
+      - item.options | default({}) is mapping
+    fail_msg: >-
+      Every exporters_mktxp_routers entry requires name, hostname, username,
+      password, and an optional options mapping.
+  loop: "{{ exporters_mktxp_routers }}"
+  loop_control:
+    label: hidden
+  no_log: true
+
+- name: Create exporter base directories for MKTXP
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ exporters_owner }}"
+    group: "{{ exporters_group }}"
+    mode: "0755"
+  loop:
+    - "{{ exporters_observability_dir }}"
+    - "{{ exporters_dir }}"
+
+- name: Create MKTXP configuration directory
+  ansible.builtin.file:
+    path: "{{ exporters_mktxp_dir }}"
+    state: directory
+    owner: "{{ exporters_owner }}"
+    group: "{{ exporters_group }}"
+    mode: "0750"
+
+- name: Install MKTXP Compose configuration
+  ansible.builtin.copy:
+    src: mktxp/compose.yml
+    dest: "{{ exporters_mktxp_dir }}/compose.yml"
+    owner: "{{ exporters_owner }}"
+    group: "{{ exporters_group }}"
+    mode: "0644"
+
+- name: Render MKTXP router configuration
+  ansible.builtin.template:
+    src: mktxp/mktxp.conf.j2
+    dest: "{{ exporters_mktxp_dir }}/mktxp.conf"
+    owner: "{{ exporters_owner }}"
+    group: "{{ exporters_group }}"
+    mode: "0440"
+  diff: false
+  no_log: true
+  register: exporters_mktxp_router_config_template
+
+- name: Render MKTXP system configuration
+  ansible.builtin.template:
+    src: mktxp/_mktxp.conf.j2
+    dest: "{{ exporters_mktxp_dir }}/_mktxp.conf"
+    owner: "{{ exporters_owner }}"
+    group: "{{ exporters_group }}"
+    mode: "0440"
+  diff: false
+  no_log: true
+  register: exporters_mktxp_system_config_template
+
+- name: Render MKTXP environment file
+  ansible.builtin.template:
+    src: mktxp/.env.j2
+    dest: "{{ exporters_mktxp_dir }}/.env"
+    owner: "{{ exporters_owner }}"
+    group: "{{ exporters_group }}"
+    mode: "0600"
+
+- name: Validate MKTXP Compose configuration
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - --env-file
+      - "{{ exporters_mktxp_dir }}/.env"
+      - --file
+      - "{{ exporters_mktxp_dir }}/compose.yml"
+      - config
+      - --quiet
+  changed_when: false
+
+- name: Deploy MKTXP
+  community.docker.docker_compose_v2:
+    project_src: "{{ exporters_mktxp_dir }}"
+    state: present
+    pull: "{{ exporters_mktxp_pull_policy }}"
+    recreate: >-
+      {{ 'always' if exporters_mktxp_router_config_template.changed
+         or exporters_mktxp_system_config_template.changed else 'auto' }}
+    remove_orphans: true
+    wait: true
+    wait_timeout: "{{ exporters_mktxp_compose_wait_timeout }}"

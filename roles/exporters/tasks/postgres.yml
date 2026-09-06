@@ -1,0 +1,108 @@
+---
+- name: Validate PostgreSQL Exporter configuration
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.system | default('') == 'Linux'
+      - exporters_postgres_exporter_image | length > 0
+      - exporters_postgres_exporter_bind_ip | length > 0
+      - exporters_postgres_exporter_web_listen_address | length > 0
+      - exporters_postgres_exporter_data_source_uri | length > 0
+      - "'://' not in exporters_postgres_exporter_data_source_uri"
+      - "'@' not in exporters_postgres_exporter_data_source_uri"
+      - exporters_postgres_exporter_data_source_user | length > 0
+      - exporters_postgres_exporter_data_source_password | length > 0
+      - exporters_postgres_exporter_user | length > 0
+      - exporters_postgres_exporter_secret_group | string | length > 0
+      - exporters_postgres_exporter_collection_timeout | length > 0
+      - exporters_postgres_exporter_restart_policy in ['no', 'always', 'on-failure', 'unless-stopped']
+      - exporters_postgres_exporter_pull_policy in ['always', 'missing', 'never', 'policy']
+      - exporters_postgres_exporter_compose_wait_timeout | int > 0
+      - exporters_postgres_exporter_extra_args is sequence
+      - exporters_postgres_exporter_extra_args is not string
+      - exporters_postgres_exporter_healthcheck_url | length > 0
+      - exporters_postgres_exporter_healthcheck_interval | length > 0
+      - exporters_postgres_exporter_healthcheck_timeout | length > 0
+      - exporters_postgres_exporter_healthcheck_retries | int > 0
+      - exporters_postgres_exporter_healthcheck_start_period | length > 0
+    fail_msg: >-
+      PostgreSQL Exporter requires a Linux Docker host, non-empty database
+      credentials, and valid exporters_postgres_exporter_* variables. Store the
+      password in Ansible Vault and gather facts before applying this role.
+
+- name: Create exporter base directories for PostgreSQL Exporter
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ exporters_owner }}"
+    group: "{{ exporters_group }}"
+    mode: "0755"
+  loop:
+    - "{{ exporters_observability_dir }}"
+    - "{{ exporters_dir }}"
+
+- name: Create PostgreSQL Exporter directory
+  ansible.builtin.file:
+    path: "{{ exporters_postgres_exporter_dir }}"
+    state: directory
+    owner: "{{ exporters_owner }}"
+    group: "{{ exporters_group }}"
+    mode: "0750"
+
+- name: Install PostgreSQL Exporter Compose configuration
+  ansible.builtin.copy:
+    src: postgres-exporter/compose.yml
+    dest: "{{ exporters_postgres_exporter_dir }}/compose.yml"
+    owner: "{{ exporters_owner }}"
+    group: "{{ exporters_group }}"
+    mode: "0644"
+
+- name: Install PostgreSQL Exporter configuration
+  ansible.builtin.copy:
+    src: postgres-exporter/postgres_exporter.yml
+    dest: "{{ exporters_postgres_exporter_dir }}/postgres_exporter.yml"
+    owner: "{{ exporters_owner }}"
+    group: "{{ exporters_postgres_exporter_secret_group }}"
+    mode: "0440"
+
+- name: Install PostgreSQL Exporter database password
+  ansible.builtin.copy:
+    content: "{{ exporters_postgres_exporter_data_source_password }}"
+    dest: "{{ exporters_postgres_exporter_dir }}/data-source-pass"
+    owner: "{{ exporters_owner }}"
+    group: "{{ exporters_postgres_exporter_secret_group }}"
+    mode: "0440"
+  diff: false
+  no_log: true
+  register: exporters_postgres_exporter_password_copy
+
+- name: Render PostgreSQL Exporter environment file
+  ansible.builtin.template:
+    src: postgres-exporter/.env.j2
+    dest: "{{ exporters_postgres_exporter_dir }}/.env"
+    owner: "{{ exporters_owner }}"
+    group: "{{ exporters_group }}"
+    mode: "0600"
+
+- name: Validate PostgreSQL Exporter Compose configuration
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - --env-file
+      - "{{ exporters_postgres_exporter_dir }}/.env"
+      - --file
+      - "{{ exporters_postgres_exporter_dir }}/compose.yml"
+      - config
+      - --quiet
+  changed_when: false
+
+- name: Deploy PostgreSQL Exporter
+  community.docker.docker_compose_v2:
+    project_src: "{{ exporters_postgres_exporter_dir }}"
+    state: present
+    pull: "{{ exporters_postgres_exporter_pull_policy }}"
+    recreate: >-
+      {{ 'always' if exporters_postgres_exporter_password_copy.changed else 'auto' }}
+    remove_orphans: true
+    wait: true
+    wait_timeout: "{{ exporters_postgres_exporter_compose_wait_timeout }}"

@@ -1,0 +1,11 @@
+# inventory dir
+inventories/
+
+# ansible config file
+./ansible.cfg
+
+# ansible runtime state
+.ansible/
+
+# secret files
+/files/

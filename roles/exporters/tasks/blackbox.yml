@@ -1,0 +1,72 @@
+---
+- name: Validate Blackbox Exporter configuration
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.system | default('') == 'Linux'
+      - exporters_blackbox_exporter_image | length > 0
+      - exporters_blackbox_exporter_bind_ip | length > 0
+      - exporters_blackbox_exporter_web_listen_address | length > 0
+      - exporters_blackbox_exporter_pull_policy in ['always', 'missing', 'never', 'policy']
+      - (blackbox_modules | default(exporters_blackbox_exporter_modules)) is mapping
+      - (blackbox_modules | default(exporters_blackbox_exporter_modules)) | length > 0
+    fail_msg: >-
+      Blackbox Exporter requires a Linux Docker host and valid
+      exporters_blackbox_exporter_* variables. Gather facts before applying this role.
+
+- name: Create Blackbox Exporter directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ exporters_owner }}"
+    group: "{{ exporters_group }}"
+    mode: "0755"
+  loop:
+    - "{{ exporters_observability_dir }}"
+    - "{{ exporters_dir }}"
+    - "{{ exporters_blackbox_exporter_dir }}"
+
+- name: Install Blackbox Exporter Compose configuration
+  ansible.builtin.copy:
+    src: blackbox-exporter/compose.yml
+    dest: "{{ exporters_blackbox_exporter_dir }}/compose.yml"
+    owner: "{{ exporters_owner }}"
+    group: "{{ exporters_group }}"
+    mode: "0644"
+
+- name: Render Blackbox Exporter environment file
+  ansible.builtin.template:
+    src: blackbox-exporter/.env.j2
+    dest: "{{ exporters_blackbox_exporter_dir }}/.env"
+    owner: "{{ exporters_owner }}"
+    group: "{{ exporters_group }}"
+    mode: "0600"
+
+- name: Render Blackbox Exporter probe configuration
+  ansible.builtin.template:
+    src: blackbox-exporter/blackbox.yml.j2
+    dest: "{{ exporters_blackbox_exporter_dir }}/blackbox.yml"
+    owner: "{{ exporters_owner }}"
+    group: "{{ exporters_group }}"
+    mode: "0644"
+
+- name: Validate Blackbox Exporter Compose configuration
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - --env-file
+      - "{{ exporters_blackbox_exporter_dir }}/.env"
+      - --file
+      - "{{ exporters_blackbox_exporter_dir }}/compose.yml"
+      - config
+      - --quiet
+  changed_when: false
+
+- name: Deploy Blackbox Exporter
+  community.docker.docker_compose_v2:
+    project_src: "{{ exporters_blackbox_exporter_dir }}"
+    state: present
+    pull: "{{ exporters_blackbox_exporter_pull_policy }}"
+    remove_orphans: true
+    wait: true
+    wait_timeout: "{{ exporters_blackbox_exporter_compose_wait_timeout }}"

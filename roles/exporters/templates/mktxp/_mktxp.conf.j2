@@ -1,0 +1,5 @@
+# Managed by Ansible. Local changes will be overwritten.
+[MKTXP]
+{% for key, value in exporters_mktxp_system_config | dictsort %}
+{{ key }} = {{ value | to_json }}
+{% endfor %}

@@ -1,0 +1,66 @@
+---
+# Node Exporter needs Linux host namespaces to report host metrics correctly.
+
+- name: Validate Node Exporter configuration
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.system | default('') == 'Linux'
+      - exporters_node_exporter_image | length > 0
+      - exporters_node_exporter_bind_ip | length > 0
+      - exporters_node_exporter_web_listen_address | length > 0
+      - exporters_node_exporter_rootfs_path.startswith('/')
+      - exporters_node_exporter_rootfs_path != '/'
+      - exporters_node_exporter_pull_policy in ['always', 'missing', 'never', 'policy']
+    fail_msg: >-
+      Node Exporter requires a Linux Docker host and valid exporters_node_exporter_*
+      variables. Gather facts before applying this role.
+
+- name: Create Node Exporter directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ exporters_owner }}"
+    group: "{{ exporters_group }}"
+    mode: "0755"
+  loop:
+    - "{{ exporters_observability_dir }}"
+    - "{{ exporters_dir }}"
+    - "{{ exporters_node_exporter_dir }}"
+
+- name: Install Node Exporter Compose configuration
+  ansible.builtin.copy:
+    src: node-exporter/compose.yml
+    dest: "{{ exporters_node_exporter_dir }}/compose.yml"
+    owner: "{{ exporters_owner }}"
+    group: "{{ exporters_group }}"
+    mode: "0644"
+
+- name: Render Node Exporter environment file
+  ansible.builtin.template:
+    src: node-exporter/.env.j2
+    dest: "{{ exporters_node_exporter_dir }}/.env"
+    owner: "{{ exporters_owner }}"
+    group: "{{ exporters_group }}"
+    mode: "0600"
+
+- name: Validate Node Exporter Compose configuration
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - --env-file
+      - "{{ exporters_node_exporter_dir }}/.env"
+      - --file
+      - "{{ exporters_node_exporter_dir }}/compose.yml"
+      - config
+      - --quiet
+  changed_when: false
+
+- name: Deploy Node Exporter
+  community.docker.docker_compose_v2:
+    project_src: "{{ exporters_node_exporter_dir }}"
+    state: present
+    pull: "{{ exporters_node_exporter_pull_policy }}"
+    remove_orphans: true
+    wait: true
+    wait_timeout: "{{ exporters_node_exporter_compose_wait_timeout }}"
