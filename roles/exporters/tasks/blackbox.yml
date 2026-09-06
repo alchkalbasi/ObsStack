@@ -4,6 +4,7 @@
     that:
       - ansible_facts.system | default('') == 'Linux'
       - exporters_blackbox_exporter_image | length > 0
+      - exporters_blackbox_exporter_bind_ip | length > 0
       - exporters_blackbox_exporter_web_listen_address | length > 0
       - exporters_blackbox_exporter_pull_policy in ['always', 'missing', 'never', 'policy']
       - (blackbox_modules | default(exporters_blackbox_exporter_modules)) is mapping
@@ -16,8 +17,8 @@
   ansible.builtin.file:
     path: "{{ item }}"
     state: directory
-    owner: root
-    group: root
+    owner: "{{ exporters_owner }}"
+    group: "{{ exporters_group }}"
     mode: "0755"
   loop:
     - "{{ exporters_observability_dir }}"
@@ -28,24 +29,24 @@
   ansible.builtin.copy:
     src: blackbox-exporter/compose.yml
     dest: "{{ exporters_blackbox_exporter_dir }}/compose.yml"
-    owner: root
-    group: root
+    owner: "{{ exporters_owner }}"
+    group: "{{ exporters_group }}"
     mode: "0644"
 
 - name: Render Blackbox Exporter environment file
   ansible.builtin.template:
     src: blackbox-exporter/.env.j2
     dest: "{{ exporters_blackbox_exporter_dir }}/.env"
-    owner: root
-    group: root
+    owner: "{{ exporters_owner }}"
+    group: "{{ exporters_group }}"
     mode: "0600"
 
 - name: Render Blackbox Exporter probe configuration
   ansible.builtin.template:
     src: blackbox-exporter/blackbox.yml.j2
     dest: "{{ exporters_blackbox_exporter_dir }}/blackbox.yml"
-    owner: root
-    group: root
+    owner: "{{ exporters_owner }}"
+    group: "{{ exporters_group }}"
     mode: "0644"
 
 - name: Validate Blackbox Exporter Compose configuration

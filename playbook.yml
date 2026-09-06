@@ -1,8 +1,8 @@
 ---
-- name: Configure observability exporters
-  hosts: exporters
-  become: true
+- name: Configure staging observability exporters
+  hosts: all
   gather_facts: true
+  become: true
   roles:
     - role: exporters
   tags:

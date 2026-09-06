@@ -1,9 +1,31 @@
 ---
+- name: Resolve Promtail runtime user
+  ansible.builtin.command:
+    argv:
+      - getent
+      - passwd
+      - "{{ exporters_owner }}"
+  changed_when: false
+  register: exporters_promtail_owner_passwd
+  when: exporters_promtail_user | default('') | length == 0
+
+- name: Set Promtail runtime user
+  ansible.builtin.set_fact:
+    exporters_promtail_runtime_user: >-
+      {{
+        (exporters_promtail_owner_passwd.stdout.split(':')[2] ~ ':' ~
+         exporters_promtail_owner_passwd.stdout.split(':')[3])
+        if exporters_promtail_user | default('') | length == 0
+        else exporters_promtail_user
+      }}
+
 - name: Validate Promtail configuration
   ansible.builtin.assert:
     that:
       - ansible_facts.system | default('') == 'Linux'
       - exporters_promtail_image | length > 0
+      - exporters_promtail_runtime_user | length > 0
+      - exporters_promtail_bind_ip | length > 0
       - exporters_promtail_web_listen_address | length > 0
       - exporters_promtail_client_url | length > 0
       - exporters_promtail_config is mapping
@@ -20,8 +42,8 @@
   ansible.builtin.file:
     path: "{{ item }}"
     state: directory
-    owner: root
-    group: root
+    owner: "{{ exporters_owner }}"
+    group: "{{ exporters_group }}"
     mode: "0755"
   loop:
     - "{{ exporters_observability_dir }}"
@@ -32,24 +54,25 @@
   ansible.builtin.file:
     path: "{{ exporters_promtail_positions_dir }}"
     state: directory
-    owner: root
-    group: root
+    owner: "{{ exporters_owner }}"
+    group: "{{ exporters_group }}"
     mode: "0750"
 
 - name: Install Promtail Compose configuration
   ansible.builtin.copy:
     src: promtail/compose.yml
     dest: "{{ exporters_promtail_dir }}/compose.yml"
-    owner: root
-    group: root
+    owner: "{{ exporters_owner }}"
+    group: "{{ exporters_group }}"
     mode: "0644"
+  register: exporters_promtail_compose_copy
 
 - name: Render Promtail configuration
   ansible.builtin.template:
     src: promtail/promtail.yml.j2
     dest: "{{ exporters_promtail_dir }}/promtail.yml"
-    owner: root
-    group: root
+    owner: "{{ exporters_owner }}"
+    group: "{{ exporters_group }}"
     mode: "0600"
   diff: false
   no_log: true
@@ -59,9 +82,10 @@
   ansible.builtin.template:
     src: promtail/.env.j2
     dest: "{{ exporters_promtail_dir }}/.env"
-    owner: root
-    group: root
+    owner: "{{ exporters_owner }}"
+    group: "{{ exporters_group }}"
     mode: "0600"
+  register: exporters_promtail_env_template
 
 - name: Validate Promtail Compose configuration
   ansible.builtin.command:
@@ -81,7 +105,14 @@
     project_src: "{{ exporters_promtail_dir }}"
     state: present
     pull: "{{ exporters_promtail_pull_policy }}"
-    recreate: "{{ 'always' if exporters_promtail_config_template.changed else 'auto' }}"
+    recreate: >-
+      {{
+        'always'
+        if exporters_promtail_compose_copy.changed or
+           exporters_promtail_config_template.changed or
+           exporters_promtail_env_template.changed
+        else 'auto'
+      }}
     remove_orphans: true
     wait: true
     wait_timeout: "{{ exporters_promtail_compose_wait_timeout }}"

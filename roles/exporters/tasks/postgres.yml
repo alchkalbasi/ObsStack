@@ -4,6 +4,7 @@
     that:
       - ansible_facts.system | default('') == 'Linux'
       - exporters_postgres_exporter_image | length > 0
+      - exporters_postgres_exporter_bind_ip | length > 0
       - exporters_postgres_exporter_web_listen_address | length > 0
       - exporters_postgres_exporter_data_source_uri | length > 0
       - "'://' not in exporters_postgres_exporter_data_source_uri"
@@ -32,8 +33,8 @@
   ansible.builtin.file:
     path: "{{ item }}"
     state: directory
-    owner: root
-    group: root
+    owner: "{{ exporters_owner }}"
+    group: "{{ exporters_group }}"
     mode: "0755"
   loop:
     - "{{ exporters_observability_dir }}"
@@ -43,23 +44,23 @@
   ansible.builtin.file:
     path: "{{ exporters_postgres_exporter_dir }}"
     state: directory
-    owner: root
-    group: "{{ exporters_postgres_exporter_secret_group }}"
+    owner: "{{ exporters_owner }}"
+    group: "{{ exporters_group }}"
     mode: "0750"
 
 - name: Install PostgreSQL Exporter Compose configuration
   ansible.builtin.copy:
     src: postgres-exporter/compose.yml
     dest: "{{ exporters_postgres_exporter_dir }}/compose.yml"
-    owner: root
-    group: root
+    owner: "{{ exporters_owner }}"
+    group: "{{ exporters_group }}"
     mode: "0644"
 
 - name: Install PostgreSQL Exporter configuration
   ansible.builtin.copy:
     src: postgres-exporter/postgres_exporter.yml
     dest: "{{ exporters_postgres_exporter_dir }}/postgres_exporter.yml"
-    owner: root
+    owner: "{{ exporters_owner }}"
     group: "{{ exporters_postgres_exporter_secret_group }}"
     mode: "0440"
 
@@ -67,7 +68,7 @@
   ansible.builtin.copy:
     content: "{{ exporters_postgres_exporter_data_source_password }}"
     dest: "{{ exporters_postgres_exporter_dir }}/data-source-pass"
-    owner: root
+    owner: "{{ exporters_owner }}"
     group: "{{ exporters_postgres_exporter_secret_group }}"
     mode: "0440"
   diff: false
@@ -78,8 +79,8 @@
   ansible.builtin.template:
     src: postgres-exporter/.env.j2
     dest: "{{ exporters_postgres_exporter_dir }}/.env"
-    owner: root
-    group: root
+    owner: "{{ exporters_owner }}"
+    group: "{{ exporters_group }}"
     mode: "0600"
 
 - name: Validate PostgreSQL Exporter Compose configuration

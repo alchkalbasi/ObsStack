@@ -12,6 +12,8 @@ exporters_enabled:
   mktxp: false
 
 exporters_observability_dir: /opt/observability
+exporters_owner: "{{ ansible_user }}"
+exporters_group: "{{ ansible_user }}"
 exporters_dir: "{{ exporters_observability_dir }}/exporters"
 exporters_node_exporter_dir: "{{ exporters_dir }}/node-exporter"
 exporters_cadvisor_dir: "{{ exporters_dir }}/cadvisor"
@@ -22,10 +24,13 @@ exporters_heplify_dir: "{{ exporters_dir }}/heplify"
 exporters_promtail_dir: "{{ exporters_dir }}/promtail"
 exporters_mktxp_dir: "{{ exporters_dir }}/mktxp"
 
-exporters_node_exporter_image: quay.io/prometheus/node-exporter:v1.12.1
+exporters_node_exporter_image: prom/node-exporter:v1.12.1
 exporters_node_exporter_container_name: node-exporter
 exporters_node_exporter_restart_policy: unless-stopped
-exporters_node_exporter_web_listen_address: "0.0.0.0:9100"
+# Override per host in inventory when Prometheus reaches the exporter through
+# a private interface.
+exporters_node_exporter_bind_ip: "127.0.0.1"
+exporters_node_exporter_web_listen_address: "{{ exporters_node_exporter_bind_ip }}:9100"
 exporters_node_exporter_rootfs_path: /host
 exporters_node_exporter_pull_policy: missing
 exporters_node_exporter_compose_wait_timeout: 60
@@ -41,7 +46,8 @@ exporters_node_exporter_log_max_files: "3"
 exporters_cadvisor_image: ghcr.io/google/cadvisor:v0.60.5
 exporters_cadvisor_container_name: cadvisor
 exporters_cadvisor_restart_policy: unless-stopped
-exporters_cadvisor_web_listen_address: "0.0.0.0:8080"
+exporters_cadvisor_bind_ip: "127.0.0.1"
+exporters_cadvisor_web_listen_address: "{{ exporters_cadvisor_bind_ip }}:8080"
 exporters_cadvisor_docker_data_dir: /var/lib/docker
 exporters_cadvisor_kmsg_device: /dev/kmsg
 exporters_cadvisor_pull_policy: missing
@@ -53,7 +59,8 @@ exporters_cadvisor_log_max_files: "3"
 exporters_blackbox_exporter_image: quay.io/prometheus/blackbox-exporter:v0.28.0
 exporters_blackbox_exporter_container_name: blackbox-exporter
 exporters_blackbox_exporter_restart_policy: unless-stopped
-exporters_blackbox_exporter_web_listen_address: "0.0.0.0:9115"
+exporters_blackbox_exporter_bind_ip: "127.0.0.1"
+exporters_blackbox_exporter_web_listen_address: "{{ exporters_blackbox_exporter_bind_ip }}:9115"
 exporters_blackbox_exporter_pull_policy: missing
 exporters_blackbox_exporter_compose_wait_timeout: 60
 exporters_blackbox_exporter_extra_args: []
@@ -98,7 +105,8 @@ exporters_blackbox_exporter_modules:
 exporters_snmp_exporter_image: quay.io/prometheus/snmp-exporter:v0.30.1
 exporters_snmp_exporter_container_name: snmp-exporter
 exporters_snmp_exporter_restart_policy: unless-stopped
-exporters_snmp_exporter_web_listen_address: "0.0.0.0:9116"
+exporters_snmp_exporter_bind_ip: "127.0.0.1"
+exporters_snmp_exporter_web_listen_address: "{{ exporters_snmp_exporter_bind_ip }}:9116"
 exporters_snmp_exporter_config_src: "{{ playbook_dir }}/files/snmp/snmp.yml"
 exporters_snmp_exporter_user: "65534:65534"
 exporters_snmp_exporter_config_group: "65534"
@@ -118,12 +126,13 @@ exporters_snmp_exporter_healthcheck_start_period: 10s
 exporters_postgres_exporter_image: quay.io/prometheuscommunity/postgres-exporter:v0.20.1
 exporters_postgres_exporter_container_name: postgres-exporter
 exporters_postgres_exporter_restart_policy: unless-stopped
-exporters_postgres_exporter_web_listen_address: "0.0.0.0:9187"
+exporters_postgres_exporter_bind_ip: "127.0.0.1"
+exporters_postgres_exporter_web_listen_address: "{{ exporters_postgres_exporter_bind_ip }}:9187"
 exporters_postgres_exporter_data_source_uri: ""
 exporters_postgres_exporter_data_source_user: postgres_exporter
 exporters_postgres_exporter_data_source_password: ""
 exporters_postgres_exporter_user: "65534:65534"
-exporters_postgres_exporter_secret_group: "65534"
+exporters_postgres_exporter_secret_group: "{{ (exporters_postgres_exporter_user | string).split(':') | last }}"
 exporters_postgres_exporter_collection_timeout: 10s
 exporters_postgres_exporter_pull_policy: missing
 exporters_postgres_exporter_compose_wait_timeout: 60
@@ -145,7 +154,12 @@ exporters_heplify_architecture_map:
   aarch64: arm64
   arm64: arm64
 exporters_heplify_architecture: >-
-  {{ exporters_heplify_architecture_map.get(ansible_architecture | default(''), '') }}
+  {{
+    exporters_heplify_architecture_map.get(
+      ansible_facts.architecture | default(ansible_architecture | default('')),
+      ''
+    )
+  }}
 exporters_heplify_binary_src: ""
 exporters_heplify_binary_url: >-
   https://github.com/sipcapture/heplify/releases/download/{{ exporters_heplify_version }}/heplify_linux_{{ exporters_heplify_architecture }}
@@ -176,7 +190,8 @@ exporters_heplify_node_id: 2002
 exporters_heplify_node_name: "{{ inventory_hostname }}"
 exporters_heplify_log_level: info
 exporters_heplify_prometheus_enabled: true
-exporters_heplify_prometheus_host: 0.0.0.0
+exporters_heplify_prometheus_bind_ip: "127.0.0.1"
+exporters_heplify_prometheus_host: "{{ exporters_heplify_prometheus_bind_ip }}"
 exporters_heplify_prometheus_port: 9096
 
 # Override this mapping when advanced Heplify features are needed. It is
@@ -217,8 +232,10 @@ exporters_heplify_config:
 # exporters_promtail_config for additional scrape jobs or pipeline stages.
 exporters_promtail_image: grafana/promtail:3.5.8
 exporters_promtail_container_name: promtail
+exporters_promtail_user: ""
 exporters_promtail_restart_policy: unless-stopped
-exporters_promtail_web_listen_address: "0.0.0.0:9080"
+exporters_promtail_bind_ip: "127.0.0.1"
+exporters_promtail_web_listen_address: "{{ exporters_promtail_bind_ip }}:9080"
 exporters_promtail_client_url: ""
 exporters_promtail_positions_dir: "{{ exporters_promtail_dir }}/positions"
 exporters_promtail_pull_policy: missing
@@ -260,9 +277,9 @@ exporters_promtail_config:
 exporters_mktxp_image: ghcr.io/akpw/mktxp:1.2.20
 exporters_mktxp_container_name: mktxp
 exporters_mktxp_restart_policy: unless-stopped
-exporters_mktxp_web_listen_address: "0.0.0.0:49090"
+exporters_mktxp_bind_ip: "127.0.0.1"
+exporters_mktxp_web_listen_address: "{{ exporters_mktxp_bind_ip }}:49090"
 exporters_mktxp_container_listen_address: "0.0.0.0:49090"
-exporters_mktxp_config_group: "1000"
 exporters_mktxp_pull_policy: missing
 exporters_mktxp_compose_wait_timeout: 60
 exporters_mktxp_log_max_size: 10m

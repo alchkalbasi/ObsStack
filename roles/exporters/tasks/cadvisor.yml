@@ -6,6 +6,7 @@
     that:
       - ansible_facts.system | default('') == 'Linux'
       - exporters_cadvisor_image | length > 0
+      - exporters_cadvisor_bind_ip | length > 0
       - exporters_cadvisor_web_listen_address | length > 0
       - exporters_cadvisor_docker_data_dir.startswith('/')
       - exporters_cadvisor_docker_data_dir != '/'
@@ -20,8 +21,8 @@
   ansible.builtin.file:
     path: "{{ item }}"
     state: directory
-    owner: root
-    group: root
+    owner: "{{ exporters_owner }}"
+    group: "{{ exporters_group }}"
     mode: "0755"
   loop:
     - "{{ exporters_observability_dir }}"
@@ -32,16 +33,16 @@
   ansible.builtin.copy:
     src: cadvisor/compose.yml
     dest: "{{ exporters_cadvisor_dir }}/compose.yml"
-    owner: root
-    group: root
+    owner: "{{ exporters_owner }}"
+    group: "{{ exporters_group }}"
     mode: "0644"
 
 - name: Render cAdvisor environment file
   ansible.builtin.template:
     src: cadvisor/.env.j2
     dest: "{{ exporters_cadvisor_dir }}/.env"
-    owner: root
-    group: root
+    owner: "{{ exporters_owner }}"
+    group: "{{ exporters_group }}"
     mode: "0600"
 
 - name: Validate cAdvisor Compose configuration

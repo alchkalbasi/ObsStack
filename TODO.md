@@ -2,20 +2,22 @@
 
 - [ ] Exporters roles
     - [x] node
-        - [ ] test
+        - [x] test
     - [x] cadvisor
-        - [ ] test
+        - [x] test
     - [x] blackbox
-        - [ ] test
+        - [x] test
     - [x] snmp
-        - [ ] test
+        - [x] test
     - [x] postgres
-        - [ ] test
+        - [x] test
     - [x] heplify
-        - [ ] test
-    - [ ] promtail
-        - [ ] test
-    - [ ] mikrotik exporter (MKTXP)
-        - [ ] test
+        - [x] test
+    - [x] promtail
+        - [x] test
+    - [x] mikrotik exporter (MKTXP)
+        - [x] test
 
 - [ ] Grafana
+
+- [ ] Prometheus

@@ -10,7 +10,7 @@ services:
       '--snmp.module-concurrency=${SNMP_EXPORTER_MODULE_CONCURRENCY:-1}'
       ${SNMP_EXPORTER_EXTRA_ARGS:-}
     ports:
-      - "${SNMP_EXPORTER_WEB_LISTEN_ADDRESS:-0.0.0.0:9116}:9116"
+      - "${SNMP_EXPORTER_WEB_LISTEN_ADDRESS:-127.0.0.1:9116}:9116"
     restart: "${SNMP_EXPORTER_RESTART_POLICY:-unless-stopped}"
     read_only: true
     security_opt:

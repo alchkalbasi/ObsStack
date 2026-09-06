@@ -4,6 +4,7 @@
     that:
       - ansible_facts.system | default('') == 'Linux'
       - exporters_mktxp_image | length > 0
+      - exporters_mktxp_bind_ip | length > 0
       - exporters_mktxp_web_listen_address | length > 0
       - exporters_mktxp_container_listen_address | length > 0
       - exporters_mktxp_routers is sequence
@@ -39,8 +40,8 @@
   ansible.builtin.file:
     path: "{{ item }}"
     state: directory
-    owner: root
-    group: root
+    owner: "{{ exporters_owner }}"
+    group: "{{ exporters_group }}"
     mode: "0755"
   loop:
     - "{{ exporters_observability_dir }}"
@@ -50,24 +51,24 @@
   ansible.builtin.file:
     path: "{{ exporters_mktxp_dir }}"
     state: directory
-    owner: root
-    group: "{{ exporters_mktxp_config_group }}"
+    owner: "{{ exporters_owner }}"
+    group: "{{ exporters_group }}"
     mode: "0750"
 
 - name: Install MKTXP Compose configuration
   ansible.builtin.copy:
     src: mktxp/compose.yml
     dest: "{{ exporters_mktxp_dir }}/compose.yml"
-    owner: root
-    group: root
+    owner: "{{ exporters_owner }}"
+    group: "{{ exporters_group }}"
     mode: "0644"
 
 - name: Render MKTXP router configuration
   ansible.builtin.template:
     src: mktxp/mktxp.conf.j2
     dest: "{{ exporters_mktxp_dir }}/mktxp.conf"
-    owner: root
-    group: "{{ exporters_mktxp_config_group }}"
+    owner: "{{ exporters_owner }}"
+    group: "{{ exporters_group }}"
     mode: "0440"
   diff: false
   no_log: true
@@ -77,8 +78,8 @@
   ansible.builtin.template:
     src: mktxp/_mktxp.conf.j2
     dest: "{{ exporters_mktxp_dir }}/_mktxp.conf"
-    owner: root
-    group: "{{ exporters_mktxp_config_group }}"
+    owner: "{{ exporters_owner }}"
+    group: "{{ exporters_group }}"
     mode: "0440"
   diff: false
   no_log: true
@@ -88,8 +89,8 @@
   ansible.builtin.template:
     src: mktxp/.env.j2
     dest: "{{ exporters_mktxp_dir }}/.env"
-    owner: root
-    group: root
+    owner: "{{ exporters_owner }}"
+    group: "{{ exporters_group }}"
     mode: "0600"
 
 - name: Validate MKTXP Compose configuration

@@ -6,6 +6,7 @@
     that:
       - ansible_facts.system | default('') == 'Linux'
       - exporters_node_exporter_image | length > 0
+      - exporters_node_exporter_bind_ip | length > 0
       - exporters_node_exporter_web_listen_address | length > 0
       - exporters_node_exporter_rootfs_path.startswith('/')
       - exporters_node_exporter_rootfs_path != '/'
@@ -18,8 +19,8 @@
   ansible.builtin.file:
     path: "{{ item }}"
     state: directory
-    owner: root
-    group: root
+    owner: "{{ exporters_owner }}"
+    group: "{{ exporters_group }}"
     mode: "0755"
   loop:
     - "{{ exporters_observability_dir }}"
@@ -30,16 +31,16 @@
   ansible.builtin.copy:
     src: node-exporter/compose.yml
     dest: "{{ exporters_node_exporter_dir }}/compose.yml"
-    owner: root
-    group: root
+    owner: "{{ exporters_owner }}"
+    group: "{{ exporters_group }}"
     mode: "0644"
 
 - name: Render Node Exporter environment file
   ansible.builtin.template:
     src: node-exporter/.env.j2
     dest: "{{ exporters_node_exporter_dir }}/.env"
-    owner: root
-    group: root
+    owner: "{{ exporters_owner }}"
+    group: "{{ exporters_group }}"
     mode: "0600"
 
 - name: Validate Node Exporter Compose configuration

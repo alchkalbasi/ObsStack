@@ -6,7 +6,7 @@ services:
     command: >-
       ${CADVISOR_EXTRA_ARGS:-}
     ports:
-      - "${CADVISOR_WEB_LISTEN_ADDRESS:-0.0.0.0:8080}:8080"
+      - "${CADVISOR_WEB_LISTEN_ADDRESS:-127.0.0.1:8080}:8080"
     privileged: true
     restart: "${CADVISOR_RESTART_POLICY:-unless-stopped}"
     devices:

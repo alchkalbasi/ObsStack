@@ -6,7 +6,12 @@
       - ansible_facts.service_mgr | default('') == 'systemd'
       - exporters_heplify_architecture in ['amd64', 'arm64']
       - exporters_heplify_binary_src | length > 0 or exporters_heplify_binary_url | length > 0
-      - exporters_heplify_binary_src | length > 0 or exporters_heplify_binary_checksum | regex_search('^sha256:[0-9a-fA-F]{64}$')
+      - >-
+        exporters_heplify_binary_src | length > 0
+        or (
+          exporters_heplify_binary_checksum
+          | regex_search('^sha256:[0-9a-fA-F]{64}$')
+        ) is not none
       - exporters_heplify_binary_dest.startswith('/')
       - exporters_heplify_config_path.startswith('/')
       - exporters_heplify_data_dir.startswith('/')
@@ -20,6 +25,7 @@
       - exporters_heplify_config.transport is defined
       - exporters_heplify_config.transport is sequence
       - exporters_heplify_config.transport | length > 0
+      - exporters_heplify_prometheus_bind_ip | length > 0
       - exporters_heplify_prometheus_port | int > 0
       - exporters_heplify_prometheus_port | int <= 65535
     fail_msg: >-

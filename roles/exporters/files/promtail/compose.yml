@@ -3,6 +3,7 @@ services:
   promtail:
     image: "${PROMTAIL_IMAGE:?PROMTAIL_IMAGE must be set}"
     container_name: "${PROMTAIL_CONTAINER_NAME:-promtail}"
+    user: "${PROMTAIL_USER:?PROMTAIL_USER must be set}"
     command: >-
       '-config.file=/etc/promtail/promtail.yml'
       '-config.expand-env=false'
