@@ -1,0 +1,8 @@
+---
+- name: Configure Prometheus shards
+  hosts: prometheus_servers
+  become: true
+  gather_facts: true
+  serial: "50%"
+  roles:
+    - role: prometheus

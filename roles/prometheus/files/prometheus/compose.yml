@@ -1,0 +1,38 @@
+---
+services:
+  prometheus:
+    image: "${PROMETHEUS_IMAGE:?PROMETHEUS_IMAGE must be set}"
+    container_name: "${PROMETHEUS_CONTAINER_NAME:-prometheus}"
+    user: "${PROMETHEUS_USER:?PROMETHEUS_USER must be set}"
+    command: >-
+      --config.file=/etc/prometheus/prometheus.yml
+      --storage.tsdb.path=/prometheus
+      --storage.tsdb.retention.time=${PROMETHEUS_RETENTION_TIME:-30d}
+      --web.listen-address=0.0.0.0:9090
+      --web.enable-lifecycle
+      ${PROMETHEUS_EXTRA_ARGS:-}
+    ports:
+      - "${PROMETHEUS_WEB_LISTEN_ADDRESS:-127.0.0.1:9090}:9090"
+    restart: "${PROMETHEUS_RESTART_POLICY:-unless-stopped}"
+    stop_grace_period: "${PROMETHEUS_STOP_GRACE_PERIOD:-30s}"
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    volumes:
+      - "./config:/etc/prometheus:ro"
+      - "${PROMETHEUS_DATA_DIR:?PROMETHEUS_DATA_DIR must be set}:/prometheus:rw"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget --spider --quiet http://127.0.0.1:9090/-/ready || exit 1
+      interval: "${PROMETHEUS_HEALTHCHECK_INTERVAL:-30s}"
+      timeout: "${PROMETHEUS_HEALTHCHECK_TIMEOUT:-5s}"
+      retries: "${PROMETHEUS_HEALTHCHECK_RETRIES:-3}"
+      start_period: "${PROMETHEUS_HEALTHCHECK_START_PERIOD:-10s}"
+    logging:
+      driver: json-file
+      options:
+        max-size: "${PROMETHEUS_LOG_MAX_SIZE:-10m}"
+        max-file: "${PROMETHEUS_LOG_MAX_FILES:-3}"

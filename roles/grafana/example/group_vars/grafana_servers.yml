@@ -1,0 +1,37 @@
+---
+# Replace with the exact DHI runtime image tag already approved for your host.
+grafana_tag: REPLACE_WITH_YOUR_DHI_TAG
+grafana_username: admin
+grafana_password: "{{ vault_grafana_password }}"
+grafana_port: 3000
+
+# Optional provisioning; replace the example Prometheus URL before use.
+grafana_provisioning:
+  datasources/obsstack.yml:
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        uid: prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus.internal:9090
+        isDefault: true
+        editable: false
+  dashboards/obsstack.yml:
+    apiVersion: 1
+    providers:
+      - name: ObsStack
+        orgId: 1
+        folder: ObsStack
+        type: file
+        disableDeletion: true
+        allowUiUpdates: false
+        updateIntervalSeconds: 30
+        options:
+          path: /etc/grafana/provisioning/dashboards/json
+
+# Paths are on the Ansible controller. Export plain dashboard JSON, not an API
+# response wrapper. Its data source UID should match the provisioned data source.
+# grafana_dashboard_files:
+#   - src: /path/to/dashboards/node-exporter.json
+#     name: node-exporter.json

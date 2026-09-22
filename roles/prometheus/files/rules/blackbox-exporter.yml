@@ -1,0 +1,12 @@
+---
+groups:
+  - name: blackbox-exporter
+    rules:
+      - alert: BlackboxExporterDown
+        expr: up{job="blackbox_exporter"} == 0
+        for: 10m
+        labels:
+          severity: page
+        annotations:
+          summary: "Blackbox Exporter is unavailable on {{ $labels.instance }}"
+          description: "Prometheus has failed to scrape Blackbox Exporter for 10 minutes."

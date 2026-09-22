@@ -1,0 +1,43 @@
+---
+- name: Prepare Prometheus Compose deployment
+  ansible.builtin.import_tasks: install.yml
+  tags:
+    - observability
+    - prometheus
+    - prometheus-install
+    - prometheus-preparing
+
+- name: Stage Prometheus configuration
+  ansible.builtin.import_tasks: config.yml
+  tags:
+    - observability
+    - prometheus
+    - prometheus-config
+    - prometheus-provisioning
+
+- name: Configure Prometheus file-based service discovery
+  ansible.builtin.import_tasks: targets.yml
+  tags:
+    - observability
+    - prometheus
+    - prometheus-targets
+    - prometheus-provisioning
+    - prometheus-sd
+
+- name: Stage Prometheus alert rules
+  ansible.builtin.import_tasks: rules.yml
+  tags:
+    - observability
+    - prometheus
+    - prometheus-rules
+    - prometheus-provisioning
+
+- name: Validate and promote Prometheus configuration
+  ansible.builtin.import_tasks: validate.yml
+  tags:
+    - observability
+    - prometheus
+    - prometheus-config
+    - prometheus-rules
+    - prometheus-provisioning
+    - prometheus-validate

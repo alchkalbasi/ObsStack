@@ -1,0 +1,101 @@
+---
+- name: Verify Grafana external Docker networks exist
+  ansible.builtin.command:
+    argv:
+      - docker
+      - network
+      - inspect
+      - "{{ item }}"
+  loop:
+    - "{{ grafana_network1 }}"
+    - "{{ grafana_network2 }}"
+  changed_when: false
+  check_mode: false
+  tags:
+    - observability
+    - grafana
+    - grafana-install
+
+- name: Create Grafana project directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ grafana_owner }}"
+    group: "{{ grafana_group }}"
+    mode: "0755"
+  loop:
+    - "{{ grafana_observability_dir }}"
+    - "{{ grafana_dir }}"
+  tags:
+    - observability
+    - grafana
+    - grafana-install
+
+- name: Create Grafana persistent data directory
+  ansible.builtin.file:
+    path: "{{ grafana_dir }}/grafana-data"
+    state: directory
+    owner: "{{ grafana_runtime_uid }}"
+    group: "{{ grafana_runtime_gid }}"
+    mode: "0750"
+  tags:
+    - observability
+    - grafana
+    - grafana-install
+
+- name: Repair existing Grafana data ownership when requested
+  ansible.builtin.file:
+    path: "{{ grafana_dir }}/grafana-data"
+    state: directory
+    owner: "{{ grafana_runtime_uid }}"
+    group: "{{ grafana_runtime_gid }}"
+    recurse: true
+  when: grafana_manage_data_ownership
+  tags:
+    - observability
+    - grafana
+    - grafana-install
+
+- name: Create Grafana provisioning directories
+  ansible.builtin.file:
+    path: "{{ grafana_dir }}/{{ item }}"
+    state: directory
+    owner: "{{ grafana_owner }}"
+    group: "{{ grafana_runtime_gid }}"
+    mode: "0750"
+  loop:
+    - provisioning
+    - provisioning/access-control
+    - provisioning/dashboards
+    - provisioning/dashboards/json
+    - provisioning/datasources
+  tags:
+    - observability
+    - grafana
+    - grafana-install
+
+- name: Install Grafana Compose configuration
+  ansible.builtin.copy:
+    src: grafana/compose.yml
+    dest: "{{ grafana_dir }}/compose.yml"
+    owner: "{{ grafana_owner }}"
+    group: "{{ grafana_group }}"
+    mode: "0644"
+  tags:
+    - observability
+    - grafana
+    - grafana-install
+
+- name: Render Grafana environment file
+  ansible.builtin.template:
+    src: grafana/.env.j2
+    dest: "{{ grafana_dir }}/.env"
+    owner: "{{ grafana_owner }}"
+    group: "{{ grafana_group }}"
+    mode: "0600"
+  diff: false
+  no_log: true
+  tags:
+    - observability
+    - grafana
+    - grafana-install

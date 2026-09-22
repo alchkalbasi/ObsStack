@@ -1,0 +1,5 @@
+{% set prometheus_rendered_web_config = prometheus_web_config | combine(
+  {'basic_auth_users': prometheus_basic_auth_users},
+  recursive=True
+) if prometheus_basic_auth_users | length > 0 else prometheus_web_config %}
+{{ prometheus_rendered_web_config | to_nice_yaml(indent=2) }}

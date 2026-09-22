@@ -1,0 +1,12 @@
+---
+# The exporters role reads this mapping on every exporter host. The Prometheus
+# filter reads the same mapping through hostvars and emits only enabled jobs.
+exporters_enabled:  # noqa var-naming[no-role-prefix]
+  node_exporter: true
+  cadvisor: false
+  blackbox_exporter: false
+  snmp_exporter: false
+  postgres_exporter: false
+  heplify: false
+  promtail: false
+  mktxp: false

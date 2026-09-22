@@ -1,0 +1,21 @@
+---
+galaxy_info:
+  role_name: grafana
+  author: ObsStack
+  description: Deploy Docker Hardened Grafana with persistent data and file provisioning.
+  license: Apache-2.0
+  min_ansible_version: "2.16"
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+        - trixie
+    - name: Ubuntu
+      versions:
+        - jammy
+        - noble
+  galaxy_tags:
+    - monitoring
+    - observability
+    - grafana
+dependencies: []

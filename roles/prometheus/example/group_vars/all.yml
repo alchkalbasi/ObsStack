@@ -1,0 +1,71 @@
+---
+prom_env: production  # noqa var-naming[no-role-prefix]
+prom_datacenter: dc1  # noqa var-naming[no-role-prefix]
+
+prometheus_cluster: obs
+prometheus_region: iran
+prometheus_shard_count: 2
+prometheus_alertmanagers:
+  - alertmanager-01.internal:9093
+  - alertmanager-02.internal:9093
+prometheus_remote_write:
+  - url: https://mimir.internal/api/v1/push
+    queue_config:
+      capacity: 10000
+
+prometheus_scrape_jobs:
+  node_exporter:
+    port: 9100
+    inventory_groups:
+      - exporters
+    enabled_key: node_exporter
+    labels:
+      job_type: system
+    per_host_labels: &host_labels
+      env: prom_env
+      role: prom_role
+      dc: prom_datacenter
+  cadvisor:
+    port: 8080
+    inventory_groups:
+      - application_servers
+    enabled_key: cadvisor
+    labels:
+      job_type: container
+    per_host_labels: *host_labels
+  postgres_exporter:
+    port: 9187
+    inventory_groups:
+      - database_servers
+    enabled_key: postgres_exporter
+    labels:
+      job_type: database
+    per_host_labels: *host_labels
+  mktxp:
+    port: 49090
+    inventory_groups:
+      - network_exporters
+    enabled_key: mktxp
+    labels:
+      job_type: network
+    per_host_labels: *host_labels
+
+prometheus_rule_files:
+  - node-exporter.yml
+  - cadvisor.yml
+  - postgres-exporter.yml
+  - mktxp.yml
+  - prometheus-self.yml
+
+prometheus_extra_rules:
+  - name: prom-slo
+    rules:
+      - alert: HighErrorRate
+        expr: >-
+          sum(rate(http_requests_total{code=~"5.."}[5m]))
+          / sum(rate(http_requests_total[5m])) > 0.02
+        for: 10m
+        labels:
+          severity: page
+        annotations:
+          summary: Error rate above 2 percent for 10 minutes

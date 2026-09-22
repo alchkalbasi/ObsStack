@@ -1,0 +1,20 @@
+---
+groups:
+  - name: prometheus-self
+    rules:
+      - alert: PrometheusConfigurationReloadFailed
+        expr: prometheus_config_last_reload_successful == 0
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: "Prometheus configuration reload failed on {{ $labels.instance }}"
+          description: "The most recent Prometheus configuration reload was unsuccessful."
+      - alert: PrometheusRuleEvaluationFailures
+        expr: increase(prometheus_rule_evaluation_failures_total[10m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Prometheus rule evaluation failures on {{ $labels.instance }}"
+          description: "Prometheus has recorded rule evaluation failures during the last 10 minutes."

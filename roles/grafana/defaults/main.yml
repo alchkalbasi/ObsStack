@@ -1,0 +1,34 @@
+---
+# Set the exact DHI runtime tag in inventory; never upgrade implicitly to latest.
+grafana_tag: ""
+grafana_container_name: grafana
+grafana_restart_policy: unless-stopped
+grafana_pull_policy: missing
+grafana_compose_wait_timeout: 120
+grafana_port: 3000
+grafana_network1: prinet
+grafana_network2: pubnet
+
+grafana_observability_dir: /opt/services/observability
+grafana_dir: "{{ grafana_observability_dir }}/grafana"
+grafana_owner: "{{ ansible_user }}"
+grafana_group: "{{ ansible_user }}"
+# DHI runtime image ownership, not the upstream grafana/grafana UID 472.
+grafana_runtime_uid: "65532"
+grafana_runtime_gid: "65532"
+# Enable only when migrating an existing data tree with different ownership.
+grafana_manage_data_ownership: false
+
+grafana_username: admin
+grafana_password: "" # Required; store in Ansible Vault.
+
+# Relative provisioning filename -> native Grafana YAML mapping.
+# Only listed files are managed; other existing provisioning files are retained.
+grafana_provisioning: {}
+# Controller-side dashboard JSON files: [{src: /path/dashboard.json, name: dashboard.json}].
+# Copied into provisioning/dashboards/json; configure a file provider to read it.
+grafana_dashboard_files: []
+
+grafana_healthcheck_enabled: true
+grafana_healthcheck_retries: 30
+grafana_healthcheck_delay: 2

@@ -1,0 +1,32 @@
+---
+- name: Render Grafana provisioning documents
+  ansible.builtin.template:
+    src: provisioning.yml.j2
+    dest: "{{ grafana_dir }}/provisioning/{{ item.key }}"
+    owner: "{{ grafana_owner }}"
+    group: "{{ grafana_runtime_gid }}"
+    mode: "0640"
+  loop: "{{ grafana_provisioning | dict2items }}"
+  register: grafana_provisioning_result
+  diff: false
+  no_log: true
+  tags:
+    - observability
+    - grafana
+    - grafana-provisioning
+
+- name: Copy Grafana dashboard JSON files
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: "{{ grafana_dir }}/provisioning/dashboards/json/{{ item.name }}"
+    owner: "{{ grafana_owner }}"
+    group: "{{ grafana_runtime_gid }}"
+    mode: "0640"
+    validate: "{{ ansible_facts.python.executable }} -m json.tool %s"
+  loop: "{{ grafana_dashboard_files }}"
+  loop_control:
+    label: "{{ item.name }}"
+  tags:
+    - observability
+    - grafana
+    - grafana-provisioning

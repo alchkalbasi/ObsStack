@@ -1,0 +1,22 @@
+---
+- name: Reload Prometheus
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - --env-file
+      - "{{ prometheus_dir }}/.env"
+      - --file
+      - "{{ prometheus_dir }}/compose.yml"
+      - kill
+      - --signal
+      - SIGHUP
+      - prometheus
+  changed_when: true
+  tags:
+    - observability
+    - prometheus
+    - prometheus-config
+    - prometheus-rules
+    - prometheus-provisioning
+    - prometheus-validate

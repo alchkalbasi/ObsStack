@@ -19,5 +19,10 @@
         - [x] test
 
 - [ ] Grafana
+    - [x] write role
+    - [ ] review
+    - [ ] provisioned dashboards
 
 - [ ] Prometheus
+    - [x] review
+    - [ ] final edits and make it prod ready

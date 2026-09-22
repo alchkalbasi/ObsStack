@@ -1,0 +1,89 @@
+---
+- name: Validate Grafana host and deployment settings
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.system | default('') == 'Linux'
+      - grafana_tag is string
+      - grafana_tag is match('^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$')
+      - grafana_tag != 'latest'
+      - grafana_container_name is match('^[A-Za-z0-9][A-Za-z0-9_.-]*$')
+      - grafana_restart_policy in ['no', 'always', 'on-failure', 'unless-stopped']
+      - grafana_pull_policy in ['always', 'missing', 'never', 'policy']
+      - grafana_port | string is match('^[0-9]+$')
+      - grafana_port | int > 0
+      - grafana_port | int <= 65535
+      - grafana_network1 in ['prinet', 'pubnet']
+      - grafana_network2 in ['prinet', 'pubnet']
+      - grafana_network1 != grafana_network2
+      - grafana_observability_dir.startswith('/')
+      - grafana_observability_dir != '/'
+      - grafana_dir.startswith(grafana_observability_dir + '/')
+      - "'..' not in grafana_dir.split('/')"
+      - grafana_runtime_uid | string is match('^[0-9]+$')
+      - grafana_runtime_gid | string is match('^[0-9]+$')
+      - grafana_manage_data_ownership is boolean
+      - grafana_compose_wait_timeout | int > 0
+      - grafana_provisioning is mapping
+      - grafana_dashboard_files is sequence
+      - grafana_dashboard_files is not string
+      - grafana_dashboard_files is not mapping
+      - grafana_healthcheck_enabled is boolean
+      - grafana_healthcheck_retries | int > 0
+      - grafana_healthcheck_delay | int > 0
+    fail_msg: >-
+      Grafana requires Linux host facts, an explicit grafana_tag, and valid
+      grafana_* settings. Docker Compose and external prinet/pubnet networks
+      must already exist on the host.
+  tags:
+    - observability
+    - grafana
+    - grafana-install
+    - grafana-provisioning
+    - grafana-deploy
+
+- name: Require Grafana administrator credentials
+  ansible.builtin.assert:
+    that:
+      - grafana_username is string
+      - grafana_username | length > 0
+      - grafana_password is string
+      - grafana_password | length > 0
+    fail_msg: Set grafana_username and a nonempty grafana_password using Ansible Vault.
+  no_log: true
+  tags:
+    - observability
+    - grafana
+    - grafana-install
+    - grafana-provisioning
+    - grafana-deploy
+
+- name: Validate Grafana provisioning filenames and documents
+  ansible.builtin.assert:
+    that:
+      - item.key is match('^(access-control|dashboards|datasources)/[A-Za-z0-9_][A-Za-z0-9_.-]*\.ya?ml$')
+      - item.value is mapping
+      - item.value.apiVersion | default(0) | int == 1
+    fail_msg: Use a supported provisioning subdirectory, YAML basename, and an apiVersion 1 document.
+  loop: "{{ grafana_provisioning | dict2items }}"
+  no_log: true
+  tags:
+    - observability
+    - grafana
+    - grafana-install
+    - grafana-provisioning
+    - grafana-deploy
+
+- name: Validate Grafana dashboard file destinations
+  ansible.builtin.assert:
+    that:
+      - item is mapping
+      - item.src | default('') | length > 0
+      - item.name | default('') is match('^[A-Za-z0-9_][A-Za-z0-9_.-]*\.json$')
+    fail_msg: Each dashboard requires a controller-side src and a JSON basename in name.
+  loop: "{{ grafana_dashboard_files }}"
+  tags:
+    - observability
+    - grafana
+    - grafana-install
+    - grafana-provisioning
+    - grafana-deploy

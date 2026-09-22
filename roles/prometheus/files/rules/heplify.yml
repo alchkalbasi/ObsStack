@@ -1,0 +1,12 @@
+---
+groups:
+  - name: heplify
+    rules:
+      - alert: HeplifyMetricsDown
+        expr: up{job="heplify"} == 0
+        for: 10m
+        labels:
+          severity: page
+        annotations:
+          summary: "Heplify metrics are unavailable on {{ $labels.instance }}"
+          description: "Prometheus has failed to scrape Heplify for 10 minutes."

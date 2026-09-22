@@ -1,0 +1,148 @@
+---
+# Prometheus container and Compose deployment.
+prometheus_version: "3.14.0"
+prometheus_image: "prom/prometheus:v{{ prometheus_version }}"
+prometheus_container_name: prometheus
+prometheus_runtime_user: "65534:65534"
+prometheus_config_group: "{{ (prometheus_runtime_user | string).split(':') | last }}"
+prometheus_restart_policy: unless-stopped
+prometheus_pull_policy: missing
+prometheus_compose_wait_timeout: 120
+prometheus_stop_grace_period: 30s
+prometheus_log_max_size: 10m
+prometheus_log_max_files: "3"
+prometheus_healthcheck_interval: 30s
+prometheus_healthcheck_timeout: 5s
+prometheus_healthcheck_retries: 3
+prometheus_healthcheck_start_period: 10s
+
+# Host paths and runtime settings.
+prometheus_observability_dir: /opt/services/observability
+prometheus_owner: "{{ ansible_user }}"
+prometheus_group: "{{ ansible_user }}"
+prometheus_dir: "{{ prometheus_observability_dir }}/prometheus"
+prometheus_config_dir: "{{ prometheus_dir }}/config"
+prometheus_rules_dir: "{{ prometheus_config_dir }}/rules"
+prometheus_file_sd_dir: "{{ prometheus_config_dir }}/file_sd"
+prometheus_staging_dir: "{{ prometheus_config_dir }}/.staging"
+prometheus_staging_rules_dir: "{{ prometheus_staging_dir }}/rules"
+prometheus_data_dir: /var/lib/prometheus
+prometheus_manage_data_ownership: true
+prometheus_bind_ip: "127.0.0.1"
+prometheus_web_listen_address: "{{ prometheus_bind_ip }}:9090"
+prometheus_external_url: ""
+prometheus_retention_time: 90d
+prometheus_retention_size: ""
+prometheus_extra_flags: []
+
+# Global configuration and topology labels.
+prometheus_scrape_interval: 30s
+prometheus_evaluation_interval: 30s
+prometheus_scrape_timeout: 10s
+prometheus_file_sd_refresh_interval: 30s
+prometheus_shard_count: 1
+prometheus_shard_index: 0
+prometheus_replica: a
+prometheus_cluster: observability
+prometheus_region: default
+
+# Existing Alertmanager endpoints, for example ["alertmanager.internal:9093"].
+prometheus_alertmanagers: []
+
+# All exporter targets are derived from inventory. enabled_key matches the
+# exporters role's exporters_enabled mapping and prevents disabled exporters
+# from becoming scrape targets. Override this mapping in inventory as needed.
+prometheus_scrape_jobs:
+  node_exporter:
+    port: 9100
+    inventory_groups:
+      - all
+    enabled_key: node_exporter
+    labels:
+      job_type: system
+    per_host_labels: &prometheus_default_host_labels
+      env: prom_env
+      role: prom_role
+      dc: prom_datacenter
+  cadvisor:
+    port: 8080
+    inventory_groups:
+      - all
+    enabled_key: cadvisor
+    labels:
+      job_type: container
+    per_host_labels: *prometheus_default_host_labels
+  blackbox_exporter:
+    port: 9115
+    inventory_groups:
+      - all
+    enabled_key: blackbox_exporter
+    labels:
+      job_type: probe
+    per_host_labels: *prometheus_default_host_labels
+  snmp_exporter:
+    port: 9116
+    inventory_groups:
+      - all
+    enabled_key: snmp_exporter
+    labels:
+      job_type: network
+    per_host_labels: *prometheus_default_host_labels
+  postgres_exporter:
+    port: 9187
+    inventory_groups:
+      - all
+    enabled_key: postgres_exporter
+    labels:
+      job_type: database
+    per_host_labels: *prometheus_default_host_labels
+  heplify:
+    port: 9096
+    inventory_groups:
+      - all
+    enabled_key: heplify
+    labels:
+      job_type: voip
+    per_host_labels: *prometheus_default_host_labels
+  promtail:
+    port: 9080
+    inventory_groups:
+      - all
+    enabled_key: promtail
+    labels:
+      job_type: logs
+    per_host_labels: *prometheus_default_host_labels
+  mktxp:
+    port: 49090
+    inventory_groups:
+      - all
+    enabled_key: mktxp
+    labels:
+      job_type: network
+    per_host_labels: *prometheus_default_host_labels
+
+# One generic alert file is supplied for every service in the exporters role.
+prometheus_rule_files:
+  - node-exporter.yml
+  - cadvisor.yml
+  - blackbox-exporter.yml
+  - snmp-exporter.yml
+  - postgres-exporter.yml
+  - heplify.yml
+  - promtail.yml
+  - mktxp.yml
+prometheus_extra_rules: []
+
+# Optional remote-write destinations for Thanos Receive, Mimir, or another
+# Prometheus-compatible backend. Entries are emitted verbatim as YAML.
+prometheus_remote_write: []
+
+# Optional Prometheus web configuration (TLS/basic auth). Basic-auth passwords
+# must already be bcrypt hashes. An empty mapping disables --web.config.file.
+prometheus_web_config: {}
+prometheus_basic_auth_users: {}
+
+# Optional remote promtool rule-test directory and explicit files. YAML files
+# found in the directory and explicit files are tested after staged validation.
+prometheus_rule_test_dir: ""
+prometheus_rule_test_files: []
