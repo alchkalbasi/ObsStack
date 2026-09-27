@@ -1,0 +1,252 @@
+---
+- name: Validate Prometheus host and deployment variables
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.system | default('') == 'Linux'
+      - prometheus_image | length > 0
+      - prometheus_container_name | length > 0
+      - prometheus_runtime_user is match('^[0-9]+:[0-9]+$')
+      - prometheus_manage_data_ownership is boolean
+      - prometheus_bind_ip | length > 0
+      - prometheus_web_listen_address | length > 0
+      - prometheus_restart_policy in ['no', 'always', 'on-failure', 'unless-stopped']
+      - prometheus_pull_policy in ['always', 'missing', 'never', 'policy']
+      - prometheus_compose_wait_timeout | int > 0
+      - prometheus_observability_dir.startswith('/')
+      - prometheus_observability_dir != '/'
+      - prometheus_dir.startswith(prometheus_observability_dir + '/')
+      - prometheus_config_dir.startswith(prometheus_dir + '/')
+      - prometheus_staging_dir.startswith(prometheus_config_dir + '/')
+      - prometheus_data_dir.startswith('/')
+      - prometheus_data_dir != '/'
+      - prometheus_shard_count | int > 0
+      - prometheus_shard_index | int >= 0
+      - prometheus_shard_index | int < prometheus_shard_count | int
+      - prometheus_cluster | string | length > 0
+      - prometheus_region | string | length > 0
+      - prometheus_replica | string | length > 0
+      - prometheus_alertmanagers is sequence
+      - prometheus_alertmanagers is not string
+      - prometheus_scrape_jobs is mapping
+      - prometheus_rule_files is sequence
+      - prometheus_rule_files is not string
+      - prometheus_extra_rules is sequence
+      - prometheus_extra_rules is not string
+      - prometheus_remote_write is sequence
+      - prometheus_remote_write is not string
+      - prometheus_web_config is mapping
+      - prometheus_basic_auth_users is mapping
+      - prometheus_extra_flags is sequence
+      - prometheus_extra_flags is not string
+      - prometheus_rule_test_dir is string
+      - prometheus_rule_test_files is sequence
+      - prometheus_rule_test_files is not string
+      - prometheus_file_sd_refresh_interval | string | length > 0
+    fail_msg: >-
+      Prometheus requires a Linux Docker host and valid prometheus_* deployment,
+      topology, and configuration variables. Gather facts before applying this role.
+  tags:
+    - observability
+    - prometheus
+    - prometheus-install
+    - prometheus-preparing
+
+- name: Validate Prometheus scrape jobs
+  ansible.builtin.assert:
+    that:
+      - item.key | length > 0
+      - item.key is match('^[A-Za-z0-9][A-Za-z0-9_-]*$')
+      - item.value is mapping
+      - item.value.port is defined
+      - item.value.port | int > 0
+      - item.value.port | int <= 65535
+      - item.value.inventory_groups is defined
+      - item.value.inventory_groups is sequence
+      - item.value.inventory_groups is not string
+      - item.value.labels | default({}) is mapping
+      - item.value.per_host_labels | default({}) is mapping
+      - item.value.enabled_key | default('') is string
+      - item.value.metrics_path | default('/') is string
+      - item.value.scheme | default('http') is string
+      - item.value.scrape_interval | default(prometheus_scrape_interval) | string | length > 0
+      - item.value.scrape_timeout | default(prometheus_scrape_timeout) | string | length > 0
+    fail_msg: "Invalid prometheus_scrape_jobs entry: {{ item.key }}"
+  loop: "{{ prometheus_scrape_jobs | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  tags:
+    - observability
+    - prometheus
+    - prometheus-install
+    - prometheus-preparing
+
+- name: Validate selected Prometheus rule filenames
+  ansible.builtin.assert:
+    that:
+      - item == item | basename
+      - item is match('^[A-Za-z0-9][A-Za-z0-9_.-]*\\.ya?ml$')
+    fail_msg: >-
+      prometheus_rule_files entries must be safe YAML basenames from files/rules.
+  loop: "{{ prometheus_rule_files }}"
+  tags:
+    - observability
+    - prometheus
+    - prometheus-install
+    - prometheus-preparing
+
+- name: Create Prometheus project and configuration directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ prometheus_owner }}"
+    group: "{{ prometheus_group }}"
+    mode: "0755"
+  loop:
+    - "{{ prometheus_observability_dir }}"
+    - "{{ prometheus_dir }}"
+    - "{{ prometheus_config_dir }}"
+    - "{{ prometheus_rules_dir }}"
+    - "{{ prometheus_file_sd_dir }}"
+  tags:
+    - observability
+    - prometheus
+    - prometheus-install
+    - prometheus-preparing
+
+- name: Create Prometheus staging directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: "{{ prometheus_config_group }}"
+    mode: "0750"
+  loop:
+    - "{{ prometheus_staging_dir }}"
+    - "{{ prometheus_staging_rules_dir }}"
+  tags:
+    - observability
+    - prometheus
+    - prometheus-install
+    - prometheus-preparing
+
+- name: Install Prometheus Compose configuration
+  ansible.builtin.copy:
+    src: prometheus/compose.yml
+    dest: "{{ prometheus_dir }}/compose.yml"
+    owner: "{{ prometheus_owner }}"
+    group: "{{ prometheus_group }}"
+    mode: "0644"
+  register: prometheus_compose_copy
+  tags:
+    - observability
+    - prometheus
+    - prometheus-install
+    - prometheus-preparing
+
+- name: Render Prometheus environment file
+  ansible.builtin.template:
+    src: prometheus/.env.j2
+    dest: "{{ prometheus_dir }}/.env"
+    owner: "{{ prometheus_owner }}"
+    group: "{{ prometheus_group }}"
+    mode: "0600"
+  no_log: "{{ prometheus_remote_write | length > 0 }}"
+  register: prometheus_env_template
+  tags:
+    - observability
+    - prometheus
+    - prometheus-install
+    - prometheus-preparing
+
+- name: Validate Prometheus Compose configuration
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - --env-file
+      - "{{ prometheus_dir }}/.env"
+      - --file
+      - "{{ prometheus_dir }}/compose.yml"
+      - config
+      - --quiet
+  changed_when: false
+  tags:
+    - observability
+    - prometheus
+    - prometheus-install
+    - prometheus-preparing
+
+- name: Inspect local Prometheus container image
+  ansible.builtin.command:
+    argv:
+      - docker
+      - image
+      - inspect
+      - "{{ prometheus_image }}"
+  register: prometheus_image_inspect
+  changed_when: false
+  failed_when: false
+  tags:
+    - observability
+    - prometheus
+    - prometheus-install
+    - prometheus-preparing
+
+- name: Pull Prometheus container image
+  ansible.builtin.command:
+    argv:
+      - docker
+      - pull
+      - "{{ prometheus_image }}"
+  register: prometheus_image_pull
+  changed_when: >-
+    'Downloaded newer image' in prometheus_image_pull.stdout or
+    'Pull complete' in prometheus_image_pull.stdout
+  when: >-
+    prometheus_pull_policy == 'always' or
+    (prometheus_image_inspect.rc != 0 and prometheus_pull_policy in ['missing', 'policy'])
+  tags:
+    - observability
+    - prometheus
+    - prometheus-install
+    - prometheus-preparing
+
+- name: Require a preloaded Prometheus image when pulling is disabled
+  ansible.builtin.assert:
+    that:
+      - prometheus_image_inspect.rc == 0
+    fail_msg: >-
+      prometheus_pull_policy is never, but {{ prometheus_image }} is not available locally.
+  when: prometheus_pull_policy == 'never'
+  tags:
+    - observability
+    - prometheus
+    - prometheus-install
+    - prometheus-preparing
+
+- name: Create Prometheus data directory
+  ansible.builtin.file:
+    path: "{{ prometheus_data_dir }}"
+    state: directory
+    owner: "{{ prometheus_runtime_user.split(':') | first }}"
+    group: "{{ prometheus_runtime_user.split(':') | last }}"
+    mode: "0750"
+  tags:
+    - observability
+    - prometheus
+    - prometheus-install
+    - prometheus-preparing
+
+- name: Ensure the Prometheus data tree is owned by the container user
+  ansible.builtin.file:
+    path: "{{ prometheus_data_dir }}"
+    state: directory
+    owner: "{{ prometheus_runtime_user.split(':') | first }}"
+    group: "{{ prometheus_runtime_user.split(':') | last }}"
+    recurse: true
+  when: prometheus_manage_data_ownership
+  tags:
+    - observability
+    - prometheus
+    - prometheus-install
+    - prometheus-preparing

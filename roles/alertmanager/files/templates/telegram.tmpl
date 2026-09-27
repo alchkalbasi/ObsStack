@@ -1,0 +1,17 @@
+{{/*
+  Telegram message (parse_mode: HTML, the Alertmanager default).
+  Overrides the built-in "telegram.default.message", so telegram_configs
+  receivers use it without setting "message".
+*/}}
+
+{{ define "telegram.default.message" -}}
+{{ if eq .Status "firing" }}🔥{{ else }}✅{{ end }} <b>{{ template "obsstack.title" . }}</b>
+{{ range .Alerts }}
+<b>{{ or .Labels.severity "unknown" | toUpper }}</b> · <code>{{ or .Labels.instance "n/a" | html }}</code>
+{{ with .Annotations.summary }}{{ . | html }}
+{{ end -}}
+{{ with .Annotations.description }}<i>{{ . | html }}</i>
+{{ end -}}
+{{ with .Labels.dc }}dc: {{ . | html }}  {{ end }}{{ with .Labels.role }}role: {{ . | html }}  {{ end }}since: {{ .StartsAt.Format "2006-01-02 15:04 MST" }}
+{{ end -}}
+{{- end }}

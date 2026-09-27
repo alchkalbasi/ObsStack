@@ -1,0 +1,34 @@
+---
+- name: Converge Prometheus role
+  hosts: all
+  become: true
+  gather_facts: true
+  vars:
+    prometheus_bind_ip: "0.0.0.0"
+    prometheus_cluster: molecule
+    prometheus_region: local
+    prometheus_shard_count: 2
+    prometheus_shard_index: 1
+    prometheus_replica: a
+    prometheus_scrape_jobs:
+      node_exporter:
+        port: 9100
+        inventory_groups:
+          - all
+        enabled_key: node_exporter
+        labels:
+          env: test
+    prometheus_rule_files:
+      - node-exporter.yml
+      - prometheus-self.yml
+  pre_tasks:
+    # These are deliberately variables consumed from the separate exporters role.
+    - name: Add exporter discovery facts for the Molecule instance  # noqa var-naming[no-role-prefix]
+      ansible.builtin.set_fact:
+        prom_address: 127.0.0.1
+        exporters_enabled:
+          node_exporter: true
+      tags:
+        - always
+  roles:
+    - role: prometheus

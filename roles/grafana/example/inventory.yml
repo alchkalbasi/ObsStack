@@ -1,0 +1,8 @@
+---
+all:
+  children:
+    grafana_servers:
+      hosts:
+        grafana:
+          ansible_host: 192.0.2.30
+          ansible_user: debian

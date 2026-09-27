@@ -1,0 +1,42 @@
+---
+- name: Render staged Prometheus configuration
+  ansible.builtin.template:
+    src: prometheus.yml.j2
+    dest: "{{ prometheus_staging_dir }}/prometheus.yml"
+    owner: root
+    group: "{{ prometheus_config_group }}"
+    mode: "0640"
+  no_log: "{{ prometheus_remote_write | length > 0 }}"
+  tags:
+    - observability
+    - prometheus
+    - prometheus-config
+    - prometheus-provisioning
+
+- name: Render staged Prometheus web configuration
+  ansible.builtin.template:
+    src: web-config.yml.j2
+    dest: "{{ prometheus_staging_dir }}/web-config.yml"
+    owner: root
+    group: "{{ prometheus_config_group }}"
+    mode: "0640"
+  no_log: true
+  when: prometheus_web_config | length > 0 or prometheus_basic_auth_users | length > 0
+  tags:
+    - observability
+    - prometheus
+    - prometheus-config
+    - prometheus-provisioning
+
+- name: Remove disabled staged Prometheus web configuration
+  ansible.builtin.file:
+    path: "{{ prometheus_staging_dir }}/web-config.yml"
+    state: absent
+  when:
+    - prometheus_web_config | length == 0
+    - prometheus_basic_auth_users | length == 0
+  tags:
+    - observability
+    - prometheus
+    - prometheus-config
+    - prometheus-provisioning

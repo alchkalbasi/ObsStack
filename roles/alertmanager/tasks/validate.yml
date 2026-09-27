@@ -1,0 +1,75 @@
+---
+- name: Validate Alertmanager host and deployment settings
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.system | default('') == 'Linux'
+      - alertmanager_image | length > 0
+      - alertmanager_image is not match('.*:latest$')
+      - alertmanager_container_name is match('^[A-Za-z0-9][A-Za-z0-9_.-]*$')
+      - alertmanager_runtime_user is match('^[0-9]+:[0-9]+$')
+      - alertmanager_manage_data_ownership is boolean
+      - alertmanager_restart_policy in ['no', 'always', 'on-failure', 'unless-stopped']
+      - alertmanager_pull_policy in ['always', 'missing', 'never']
+      - alertmanager_compose_wait_timeout | int > 0
+      - alertmanager_web_listen_address is match('^[^:]+:[0-9]+$')
+      - alertmanager_external_url is string
+      - alertmanager_external_url | length == 0 or alertmanager_external_url is match('^https?://')
+      - alertmanager_log_level in ['debug', 'info', 'warn', 'error']
+      - alertmanager_extra_flags is sequence
+      - alertmanager_extra_flags is not string
+      - alertmanager_observability_dir.startswith('/')
+      - alertmanager_observability_dir != '/'
+      - alertmanager_dir.startswith(alertmanager_observability_dir + '/')
+      - alertmanager_templates_dir == alertmanager_dir + '/templates'
+      - "'..' not in alertmanager_dir.split('/')"
+      - alertmanager_data_dir.startswith('/')
+      - alertmanager_data_dir != '/'
+      - alertmanager_templates_src is string
+      - alertmanager_templates_src | length > 0
+    fail_msg: >-
+      Alertmanager requires Linux host facts (gather facts before this role), a
+      pinned image, and valid alertmanager_* deployment settings.
+
+- name: Validate Alertmanager configuration variables
+  ansible.builtin.assert:
+    that:
+      - alertmanager_global_extra is mapping
+      - alertmanager_smtp_smarthost | length == 0 or alertmanager_smtp_smarthost is match('^[^:]+:[0-9]+$')
+      - alertmanager_smtp_smarthost | length == 0 or alertmanager_smtp_from | length > 0
+      - alertmanager_route_group_by is sequence
+      - alertmanager_route_group_by is not string
+      - alertmanager_routes is sequence
+      - alertmanager_routes is not string
+      - alertmanager_inhibit_rules is sequence
+      - alertmanager_inhibit_rules is not string
+      - alertmanager_time_intervals is sequence
+      - alertmanager_time_intervals is not string
+      - alertmanager_receivers is sequence
+      - alertmanager_receivers is not string
+      - alertmanager_receivers | length > 0
+      - alertmanager_receivers | selectattr('name', 'undefined') | list | length == 0
+      - alertmanager_receiver_names | unique | length == alertmanager_receiver_names | length
+      - alertmanager_route_receiver in alertmanager_receiver_names
+    fail_msg: >-
+      Invalid Alertmanager configuration variables. Every receiver needs a unique
+      name, alertmanager_route_receiver must name one of them, and SMTP needs
+      host:port plus alertmanager_smtp_from.
+  vars:
+    alertmanager_receiver_names: "{{ alertmanager_receivers | map(attribute='name') | list }}"
+  # Receivers and SMTP settings may contain credentials.
+  no_log: true
+
+- name: Check the Alertmanager notification template source directory
+  ansible.builtin.stat:
+    path: "{{ alertmanager_templates_src }}"
+  delegate_to: localhost
+  become: false
+  run_once: true
+  register: alertmanager_templates_src_stat
+
+- name: Validate the Alertmanager notification template source directory
+  ansible.builtin.assert:
+    that:
+      - alertmanager_templates_src_stat.stat.exists
+      - alertmanager_templates_src_stat.stat.isdir
+    fail_msg: alertmanager_templates_src must be an existing directory on the controller.

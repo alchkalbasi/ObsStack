@@ -7,5 +7,12 @@ inventories/
 # ansible runtime state
 .ansible/
 
+# python runtime state
+__pycache__/
+*.py[cod]
+
 # secret files
 /files/
+
+# grafana dashboards
+roles/grafana/files/dashboards/*.json

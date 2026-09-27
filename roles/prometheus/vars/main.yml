@@ -1,0 +1,5 @@
+---
+prometheus_container_config_dir: /etc/prometheus
+prometheus_container_rules_dir: "{{ prometheus_container_config_dir }}/rules"
+prometheus_container_file_sd_dir: "{{ prometheus_container_config_dir }}/file_sd"
+prometheus_container_data_dir: /prometheus

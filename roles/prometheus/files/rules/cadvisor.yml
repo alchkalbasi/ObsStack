@@ -1,0 +1,23 @@
+---
+groups:
+  - name: cadvisor
+    rules:
+      - alert: CAdvisorDown
+        expr: up{job="cadvisor"} == 0
+        for: 10m
+        labels:
+          severity: page
+        annotations:
+          summary: "cAdvisor is unavailable on {{ $labels.instance }}"
+          description: "Prometheus has failed to scrape cAdvisor for 10 minutes."
+      - alert: ContainerHighCpuUsage
+        expr: >-
+          sum by (instance, name) (
+            rate(container_cpu_usage_seconds_total{job="cadvisor",image!=""}[5m])
+          ) > 0.90
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High container CPU usage on {{ $labels.instance }}"
+          description: "Container {{ $labels.name }} has used more than 0.9 CPU cores for 15 minutes."

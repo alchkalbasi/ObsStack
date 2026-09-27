@@ -1,0 +1,82 @@
+---
+- name: Create Alertmanager project directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ alertmanager_owner }}"
+    group: "{{ alertmanager_group }}"
+    mode: "0755"
+  loop:
+    - "{{ alertmanager_observability_dir }}"
+    - "{{ alertmanager_dir }}"
+    - "{{ alertmanager_templates_dir }}"
+
+- name: Create Alertmanager data directory
+  ansible.builtin.file:
+    path: "{{ alertmanager_data_dir }}"
+    state: directory
+    owner: "{{ alertmanager_runtime_user.split(':') | first }}"
+    group: "{{ alertmanager_runtime_user.split(':') | last }}"
+    mode: "0750"
+
+- name: Ensure the Alertmanager data tree is owned by the container user
+  ansible.builtin.file:
+    path: "{{ alertmanager_data_dir }}"
+    state: directory
+    owner: "{{ alertmanager_runtime_user.split(':') | first }}"
+    group: "{{ alertmanager_runtime_user.split(':') | last }}"
+    recurse: true
+  when: alertmanager_manage_data_ownership
+
+- name: Install Alertmanager Compose configuration
+  ansible.builtin.copy:
+    src: alertmanager/compose.yml
+    dest: "{{ alertmanager_dir }}/compose.yml"
+    owner: "{{ alertmanager_owner }}"
+    group: "{{ alertmanager_group }}"
+    mode: "0644"
+  register: alertmanager_compose_copy
+
+- name: Render Alertmanager environment file
+  ansible.builtin.template:
+    src: alertmanager/.env.j2
+    dest: "{{ alertmanager_dir }}/.env"
+    owner: "{{ alertmanager_owner }}"
+    group: "{{ alertmanager_group }}"
+    mode: "0600"
+  register: alertmanager_env_template
+
+- name: Validate Alertmanager Compose configuration
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - --project-directory
+      - "{{ alertmanager_dir }}"
+      - config
+      - --quiet
+  changed_when: false
+  # The files above do not exist yet in check mode on a fresh host.
+  when: not ansible_check_mode
+
+# The image must be present before config.yml is rendered: amtool from the same
+# image validates it.
+- name: Pull Alertmanager container image
+  community.docker.docker_image_pull:
+    name: "{{ alertmanager_image }}"
+    pull: "{{ 'always' if alertmanager_pull_policy == 'always' else 'not_present' }}"
+  when: alertmanager_pull_policy != 'never'
+
+- name: Inspect local Alertmanager container image
+  community.docker.docker_image_info:
+    name: "{{ alertmanager_image }}"
+  register: alertmanager_image_info
+  when: alertmanager_pull_policy == 'never'
+
+- name: Require a preloaded Alertmanager image when pulling is disabled
+  ansible.builtin.assert:
+    that:
+      - alertmanager_image_info.images | length > 0
+    fail_msg: >-
+      alertmanager_pull_policy is never, but {{ alertmanager_image }} is not available locally.
+  when: alertmanager_pull_policy == 'never'

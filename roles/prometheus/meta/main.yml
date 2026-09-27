@@ -1,0 +1,25 @@
+---
+galaxy_info:
+  role_name: prometheus
+  author: ObsStack
+  description: Deploy and configure a containerized sharded Prometheus server from inventory.
+  license: MIT
+  min_ansible_version: "2.16"
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+        - trixie
+    - name: Ubuntu
+      versions:
+        - jammy
+        - noble
+    - name: EL
+      versions:
+        - "9"
+  galaxy_tags:
+    - monitoring
+    - observability
+    - prometheus
+
+dependencies: []

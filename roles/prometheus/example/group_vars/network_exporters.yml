@@ -1,0 +1,11 @@
+---
+prom_role: network  # noqa var-naming[no-role-prefix]
+exporters_enabled:  # noqa var-naming[no-role-prefix]
+  node_exporter: true
+  cadvisor: false
+  blackbox_exporter: false
+  snmp_exporter: true
+  postgres_exporter: false
+  heplify: false
+  promtail: false
+  mktxp: true

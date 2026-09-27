@@ -1,0 +1,59 @@
+---
+- name: Validate Grafana Compose configuration
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - --env-file
+      - "{{ grafana_dir }}/.env"
+      - --file
+      - "{{ grafana_dir }}/compose.yml"
+      - config
+      - --quiet
+  changed_when: false
+  no_log: true
+  tags:
+    - observability
+    - grafana
+    - grafana-install
+    - grafana-provisioning
+    - grafana-deploy
+
+- name: Deploy Grafana
+  community.docker.docker_compose_v2:
+    project_src: "{{ grafana_dir }}"
+    state: present
+    pull: "{{ grafana_pull_policy }}"
+    recreate: "{{ 'always' if (grafana_provisioning_result | default({})).changed | default(false) else 'auto' }}"
+    wait: true
+    wait_timeout: "{{ grafana_compose_wait_timeout }}"
+  no_log: true
+  when: not ansible_check_mode
+  tags:
+    - observability
+    - grafana
+    - grafana-install
+    - grafana-provisioning
+    - grafana-deploy
+
+- name: Wait for Grafana database health
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ grafana_port }}/api/health"
+    return_content: true
+    use_proxy: false
+    status_code: 200
+  register: grafana_health_result
+  until:
+    - grafana_health_result.status | default(0) == 200
+    - (grafana_health_result.json | default({})).database | default('') == 'ok'
+  retries: "{{ grafana_healthcheck_retries }}"
+  delay: "{{ grafana_healthcheck_delay }}"
+  when:
+    - grafana_healthcheck_enabled
+    - not ansible_check_mode
+  tags:
+    - observability
+    - grafana
+    - grafana-install
+    - grafana-provisioning
+    - grafana-deploy

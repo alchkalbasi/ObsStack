@@ -8,3 +8,50 @@
   tags:
     - observability
     - exporters
+
+- name: Configure staging Prometheus
+  hosts: all
+  gather_facts: false
+  become: true
+  serial: 1
+  pre_tasks:
+    - name: Gather Prometheus host facts
+      ansible.builtin.setup:
+      tags:
+        - always
+  roles:
+    - role: prometheus
+  tags:
+    - observability
+    - prometheus
+
+- name: Configure Grafana
+  hosts: all
+  gather_facts: false
+  become: true
+  serial: 1
+  pre_tasks:
+    - name: Gather Grafana host facts
+      ansible.builtin.setup:
+      tags:
+        - always
+  roles:
+    - role: grafana
+  tags:
+    - observability
+    - grafana
+
+- name: Configure Alertmanager
+  hosts: all
+  gather_facts: false
+  become: true
+  pre_tasks:
+    - name: Gather Alertmanager host facts
+      ansible.builtin.setup:
+      tags:
+        - always
+  roles:
+    - role: alertmanager
+  tags:
+    - observability
+    - alertmanager

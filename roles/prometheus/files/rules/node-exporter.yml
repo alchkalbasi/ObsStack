@@ -1,0 +1,32 @@
+---
+groups:
+  - name: node-exporter
+    rules:
+      - alert: NodeExporterDown
+        expr: up{job="node_exporter"} == 0
+        for: 10m
+        labels:
+          severity: page
+        annotations:
+          summary: "Node Exporter is unavailable on {{ $labels.instance }}"
+          description: "Prometheus has failed to scrape Node Exporter for 10 minutes."
+      - alert: NodeMemoryPressure
+        expr: >-
+          node_memory_MemAvailable_bytes{job="node_exporter"}
+          / node_memory_MemTotal_bytes{job="node_exporter"} < 0.10
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low available memory on {{ $labels.instance }}"
+          description: "Available memory has remained below 10 percent for 15 minutes."
+      - alert: NodeDiskFull
+        expr: >-
+          node_filesystem_avail_bytes{job="node_exporter",fstype!~"tmpfs|overlay"}
+          / node_filesystem_size_bytes{job="node_exporter",fstype!~"tmpfs|overlay"} < 0.10
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Filesystem space is low on {{ $labels.instance }}"
+          description: "A non-ephemeral filesystem has less than 10 percent free space."

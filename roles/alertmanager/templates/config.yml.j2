@@ -1,0 +1,79 @@
+{{ ansible_managed | comment }}
+#
+# Alertmanager configuration
+# https://prometheus.io/docs/alerting/latest/configuration/
+#
+# Every value below comes from an alertmanager_* variable (see the role's
+# defaults/main.yml). Change behaviour in inventory; edit this file only to
+# change the structure of the configuration.
+{#- Render a free-form variable as a YAML block indented by `width` spaces. #}
+{% macro yaml(value, width) -%}
+{{ value | to_nice_yaml(indent=2, sort_keys=false) | trim | indent(width) }}
+{%- endmacro %}
+
+# ---------------------------------------------------------------------------
+# Global settings shared by every receiver
+# ---------------------------------------------------------------------------
+global:
+  resolve_timeout: {{ alertmanager_resolve_timeout }}
+{% if alertmanager_smtp_smarthost | length > 0 %}
+
+  # SMTP (email receivers)
+  smtp_smarthost: {{ alertmanager_smtp_smarthost | to_json }}
+  smtp_from: {{ alertmanager_smtp_from | to_json }}
+  smtp_auth_username: {{ alertmanager_smtp_auth_username | to_json }}
+  smtp_auth_password: {{ alertmanager_smtp_auth_password | to_json }}
+  smtp_require_tls: {{ alertmanager_smtp_require_tls | bool | to_json }}
+{% endif %}
+{% if alertmanager_global_extra | length > 0 %}
+
+  # Extra global settings
+  {{ yaml(alertmanager_global_extra, 2) }}
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Notification templates (copied from the role's files/templates/)
+# ---------------------------------------------------------------------------
+templates:
+  - {{ (alertmanager_container_templates_dir ~ '/*.tmpl') | to_json }}
+
+# ---------------------------------------------------------------------------
+# Routing tree: every alert enters the root route, then child routes in order
+# ---------------------------------------------------------------------------
+route:
+  receiver: {{ alertmanager_route_receiver | to_json }}
+  group_by: {{ alertmanager_route_group_by | to_json }}
+  group_wait: {{ alertmanager_route_group_wait }}
+  group_interval: {{ alertmanager_route_group_interval }}
+  repeat_interval: {{ alertmanager_route_repeat_interval }}
+{% if alertmanager_routes | length > 0 %}
+  routes:
+    {{ yaml(alertmanager_routes, 4) }}
+{% endif %}
+{% if alertmanager_inhibit_rules | length > 0 %}
+
+# ---------------------------------------------------------------------------
+# Inhibition: mute target alerts while a matching source alert is firing
+# ---------------------------------------------------------------------------
+inhibit_rules:
+  {{ yaml(alertmanager_inhibit_rules, 2) }}
+{% endif %}
+{% if alertmanager_time_intervals | length > 0 %}
+
+# ---------------------------------------------------------------------------
+# Named time intervals used to mute or activate routes
+# ---------------------------------------------------------------------------
+time_intervals:
+  {{ yaml(alertmanager_time_intervals, 2) }}
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Receivers: where notifications are delivered
+# ---------------------------------------------------------------------------
+receivers:
+{% for receiver in alertmanager_receivers %}
+{% if not loop.first %}
+
+{% endif %}
+  - {{ yaml(receiver, 4) }}
+{% endfor %}

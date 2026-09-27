@@ -1,0 +1,55 @@
+{{ ansible_managed | comment }}
+global:
+  scrape_interval: {{ prometheus_scrape_interval }}
+  evaluation_interval: {{ prometheus_evaluation_interval }}
+  scrape_timeout: {{ prometheus_scrape_timeout }}
+  external_labels:
+    cluster: {{ prometheus_cluster | string | to_json }}
+    region: {{ prometheus_region | string | to_json }}
+    shard: {{ prometheus_shard_index | string | to_json }}
+    replica: {{ prometheus_replica | string | to_json }}
+
+rule_files:
+  - {{ (prometheus_container_rules_dir ~ '/*.yml') | to_json }}
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: {{ prometheus_alertmanagers | to_json }}
+
+scrape_configs:
+{% for job_name, job in prometheus_scrape_jobs | dictsort %}
+  - job_name: {{ job_name | to_json }}
+{% if job.metrics_path is defined %}
+    metrics_path: {{ job.metrics_path | to_json }}
+{% endif %}
+{% if job.scrape_interval is defined %}
+    scrape_interval: {{ job.scrape_interval }}
+{% endif %}
+{% if job.scrape_timeout is defined %}
+    scrape_timeout: {{ job.scrape_timeout }}
+{% endif %}
+{% if job.scheme is defined %}
+    scheme: {{ job.scheme | to_json }}
+{% endif %}
+    file_sd_configs:
+      - files:
+          - {{ (prometheus_container_file_sd_dir ~ '/' ~ job_name ~ '.yml') | to_json }}
+        refresh_interval: {{ prometheus_file_sd_refresh_interval }}
+    relabel_configs:
+      - source_labels: [__address__]
+        modulus: {{ prometheus_shard_count }}
+        target_label: __tmp_shard
+        action: hashmod
+      - source_labels: [__tmp_shard]
+        regex: {{ prometheus_shard_index | string | to_json }}
+        action: keep
+      - source_labels: [instance_host]
+        target_label: instance
+      - regex: __tmp_shard
+        action: labeldrop
+{% endfor %}
+{% if prometheus_remote_write | length > 0 %}
+remote_write:
+{{ prometheus_remote_write | to_nice_yaml(indent=2) | indent(2, true) }}
+{% endif %}

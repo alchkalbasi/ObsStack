@@ -1,0 +1,52 @@
+---
+- name: Render Prometheus exporter service discovery files
+  ansible.builtin.template:
+    src: file_sd.yml.j2
+    dest: "{{ prometheus_file_sd_dir }}/{{ item.key }}.yml"
+    owner: "{{ prometheus_owner }}"
+    group: "{{ prometheus_group }}"
+    mode: "0644"
+  loop: "{{ prometheus_scrape_jobs | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  tags:
+    - observability
+    - prometheus
+    - prometheus-targets
+    - prometheus-provisioning
+    - prometheus-sd
+
+- name: Find deployed Prometheus service discovery files
+  ansible.builtin.find:
+    paths: "{{ prometheus_file_sd_dir }}"
+    patterns:
+      - "*.json"
+      - "*.yml"
+      - "*.yaml"
+    file_type: file
+  register: prometheus_deployed_sd_files
+  tags:
+    - observability
+    - prometheus
+    - prometheus-targets
+    - prometheus-provisioning
+    - prometheus-sd
+
+- name: Prune obsolete Prometheus service discovery files
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ prometheus_deployed_sd_files.files }}"
+  loop_control:
+    label: "{{ item.path }}"
+  vars:
+    prometheus_expected_sd_files: >-
+      {{ prometheus_scrape_jobs.keys() | map('regex_replace', '$', '.yml') | list }}
+  when: >-
+    item.path | basename not in prometheus_expected_sd_files
+  tags:
+    - observability
+    - prometheus
+    - prometheus-targets
+    - prometheus-provisioning
+    - prometheus-sd

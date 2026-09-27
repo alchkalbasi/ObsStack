@@ -1,0 +1,29 @@
+---
+all:
+  children:
+    prometheus_servers:
+      hosts:
+        prom-shard0-a:
+          ansible_host: 10.20.0.10
+        prom-shard0-b:
+          ansible_host: 10.20.0.11
+        prom-shard1-a:
+          ansible_host: 10.20.0.12
+        prom-shard1-b:
+          ansible_host: 10.20.0.13
+    exporters:
+      children:
+        application_servers:
+          hosts:
+            app-01:
+              ansible_host: 10.30.0.10
+            app-02:
+              ansible_host: 10.30.0.11
+        database_servers:
+          hosts:
+            postgres-01:
+              ansible_host: 10.30.1.10
+        network_exporters:
+          hosts:
+            network-01:
+              ansible_host: 10.30.2.10

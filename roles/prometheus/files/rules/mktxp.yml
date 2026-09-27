@@ -1,0 +1,12 @@
+---
+groups:
+  - name: mktxp
+    rules:
+      - alert: MktxpDown
+        expr: up{job="mktxp"} == 0
+        for: 10m
+        labels:
+          severity: page
+        annotations:
+          summary: "MKTXP is unavailable on {{ $labels.instance }}"
+          description: "Prometheus has failed to scrape MKTXP for 10 minutes."

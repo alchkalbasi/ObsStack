@@ -1,0 +1,299 @@
+---
+- name: Validate staged Prometheus configuration with promtool container
+  ansible.builtin.command:
+    argv:
+      - docker
+      - run
+      - --rm
+      - --user
+      - "{{ prometheus_runtime_user }}"
+      - --entrypoint
+      - promtool
+      - --volume
+      - "{{ prometheus_staging_dir }}/prometheus.yml:{{ prometheus_container_config_dir }}/prometheus.yml:ro"
+      - --volume
+      - "{{ prometheus_staging_rules_dir }}:{{ prometheus_container_rules_dir }}:ro"
+      - --volume
+      - "{{ prometheus_file_sd_dir }}:{{ prometheus_container_file_sd_dir }}:ro"
+      - "{{ prometheus_image }}"
+      - check
+      - config
+      - "{{ prometheus_container_config_dir }}/prometheus.yml"
+  changed_when: false
+  no_log: "{{ prometheus_remote_write | length > 0 }}"
+  tags:
+    - observability
+    - prometheus
+    - prometheus-config
+    - prometheus-rules
+    - prometheus-provisioning
+    - prometheus-validate
+
+- name: Validate staged Prometheus web configuration with promtool container
+  ansible.builtin.command:
+    argv:
+      - docker
+      - run
+      - --rm
+      - --user
+      - "{{ prometheus_runtime_user }}"
+      - --entrypoint
+      - promtool
+      - --volume
+      - "{{ prometheus_staging_dir }}/web-config.yml:{{ prometheus_container_config_dir }}/web-config.yml:ro"
+      - "{{ prometheus_image }}"
+      - check
+      - web-config
+      - "{{ prometheus_container_config_dir }}/web-config.yml"
+  changed_when: false
+  no_log: true
+  when: prometheus_web_config | length > 0 or prometheus_basic_auth_users | length > 0
+  tags:
+    - observability
+    - prometheus
+    - prometheus-config
+    - prometheus-rules
+    - prometheus-provisioning
+    - prometheus-validate
+
+- name: Find validated staged Prometheus alert rule files
+  ansible.builtin.find:
+    paths: "{{ prometheus_staging_rules_dir }}"
+    patterns:
+      - "*.yml"
+      - "*.yaml"
+    file_type: file
+  register: prometheus_staged_rule_files
+  tags:
+    - observability
+    - prometheus
+    - prometheus-config
+    - prometheus-rules
+    - prometheus-provisioning
+    - prometheus-validate
+
+- name: Validate staged Prometheus alert rules with promtool container
+  ansible.builtin.command:
+    argv: >-
+      {{
+        [
+          'docker', 'run', '--rm',
+          '--user', prometheus_runtime_user,
+          '--entrypoint', 'promtool',
+          '--volume', prometheus_staging_rules_dir ~ ':/rules:ro',
+          prometheus_image, 'check', 'rules'
+        ]
+        + (
+          prometheus_staged_rule_files.files
+          | map(attribute='path')
+          | map('basename')
+          | map('regex_replace', '^', '/rules/')
+          | list
+        )
+      }}
+  changed_when: false
+  when: prometheus_staged_rule_files.matched | int > 0
+  tags:
+    - observability
+    - prometheus
+    - prometheus-config
+    - prometheus-rules
+    - prometheus-provisioning
+    - prometheus-validate
+
+- name: Find Prometheus alert rule unit tests
+  ansible.builtin.find:
+    paths: "{{ prometheus_rule_test_dir }}"
+    patterns:
+      - "*.yml"
+      - "*.yaml"
+    file_type: file
+    recurse: true
+  register: prometheus_discovered_rule_tests
+  when: prometheus_rule_test_dir | length > 0
+  tags:
+    - observability
+    - prometheus
+    - prometheus-config
+    - prometheus-rules
+    - prometheus-provisioning
+    - prometheus-validate
+
+- name: Build Prometheus alert rule unit test list
+  ansible.builtin.set_fact:
+    prometheus_rule_tests_to_run: >-
+      {{
+        prometheus_rule_test_files
+        + (
+          prometheus_discovered_rule_tests.files
+          | default([])
+          | map(attribute='path')
+          | list
+        )
+      }}
+  tags:
+    - observability
+    - prometheus
+    - prometheus-config
+    - prometheus-rules
+    - prometheus-provisioning
+    - prometheus-validate
+
+- name: Run Prometheus alert rule unit tests with promtool container
+  ansible.builtin.command:
+    argv:
+      - docker
+      - run
+      - --rm
+      - --user
+      - "{{ prometheus_runtime_user }}"
+      - --entrypoint
+      - promtool
+      - --workdir
+      - /rule-tests
+      - --volume
+      - "{{ item | dirname }}:/rule-tests:ro"
+      - "{{ prometheus_image }}"
+      - test
+      - rules
+      - "{{ item | basename }}"
+  loop: "{{ prometheus_rule_tests_to_run | unique | sort }}"
+  changed_when: false
+  tags:
+    - observability
+    - prometheus
+    - prometheus-config
+    - prometheus-rules
+    - prometheus-provisioning
+    - prometheus-validate
+
+- name: Promote validated Prometheus configuration
+  ansible.builtin.copy:
+    src: "{{ prometheus_staging_dir }}/prometheus.yml"
+    dest: "{{ prometheus_config_dir }}/prometheus.yml"
+    remote_src: true
+    owner: root
+    group: "{{ prometheus_config_group }}"
+    mode: "0640"
+  no_log: "{{ prometheus_remote_write | length > 0 }}"
+  notify: Reload Prometheus
+  tags:
+    - observability
+    - prometheus
+    - prometheus-config
+    - prometheus-rules
+    - prometheus-provisioning
+    - prometheus-validate
+
+- name: Promote validated Prometheus web configuration
+  ansible.builtin.copy:
+    src: "{{ prometheus_staging_dir }}/web-config.yml"
+    dest: "{{ prometheus_config_dir }}/web-config.yml"
+    remote_src: true
+    owner: root
+    group: "{{ prometheus_config_group }}"
+    mode: "0640"
+  no_log: true
+  when: prometheus_web_config | length > 0 or prometheus_basic_auth_users | length > 0
+  notify: Reload Prometheus
+  tags:
+    - observability
+    - prometheus
+    - prometheus-config
+    - prometheus-rules
+    - prometheus-provisioning
+    - prometheus-validate
+
+- name: Remove disabled live Prometheus web configuration
+  ansible.builtin.file:
+    path: "{{ prometheus_config_dir }}/web-config.yml"
+    state: absent
+  when:
+    - prometheus_web_config | length == 0
+    - prometheus_basic_auth_users | length == 0
+  notify: Reload Prometheus
+  tags:
+    - observability
+    - prometheus
+    - prometheus-config
+    - prometheus-rules
+    - prometheus-provisioning
+    - prometheus-validate
+
+- name: Promote validated Prometheus alert rules
+  ansible.builtin.copy:
+    src: "{{ item.path }}"
+    dest: "{{ prometheus_rules_dir }}/{{ item.path | basename }}"
+    remote_src: true
+    owner: "{{ prometheus_owner }}"
+    group: "{{ prometheus_group }}"
+    mode: "0644"
+  loop: "{{ prometheus_staged_rule_files.files }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
+  notify: Reload Prometheus
+  tags:
+    - observability
+    - prometheus
+    - prometheus-config
+    - prometheus-rules
+    - prometheus-provisioning
+    - prometheus-validate
+
+- name: Find deployed Prometheus alert rule files
+  ansible.builtin.find:
+    paths: "{{ prometheus_rules_dir }}"
+    patterns:
+      - "*.yml"
+      - "*.yaml"
+    file_type: file
+  register: prometheus_deployed_rule_files
+  tags:
+    - observability
+    - prometheus
+    - prometheus-config
+    - prometheus-rules
+    - prometheus-provisioning
+    - prometheus-validate
+
+- name: Prune obsolete Prometheus alert rule files
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ prometheus_deployed_rule_files.files }}"
+  loop_control:
+    label: "{{ item.path }}"
+  vars:
+    prometheus_validated_rule_basenames: >-
+      {{ prometheus_staged_rule_files.files | map(attribute='path') | map('basename') | list }}
+  when: item.path | basename not in prometheus_validated_rule_basenames
+  notify: Reload Prometheus
+  tags:
+    - observability
+    - prometheus
+    - prometheus-config
+    - prometheus-rules
+    - prometheus-provisioning
+    - prometheus-validate
+
+- name: Deploy Prometheus
+  community.docker.docker_compose_v2:
+    project_src: "{{ prometheus_dir }}"
+    state: present
+    pull: "{{ prometheus_pull_policy }}"
+    remove_orphans: true
+    recreate: >-
+      {{
+        'always'
+        if prometheus_compose_copy.changed or prometheus_env_template.changed
+        else 'auto'
+      }}
+    wait: true
+    wait_timeout: "{{ prometheus_compose_wait_timeout }}"
+  tags:
+    - observability
+    - prometheus
+    - prometheus-config
+    - prometheus-rules
+    - prometheus-provisioning
+    - prometheus-validate

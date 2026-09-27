@@ -1,0 +1,70 @@
+---
+- name: Stage selected Prometheus alert rule files
+  ansible.builtin.copy:
+    src: "rules/{{ item }}"
+    dest: "{{ prometheus_staging_rules_dir }}/{{ item }}"
+    owner: root
+    group: "{{ prometheus_config_group }}"
+    mode: "0640"
+  loop: "{{ prometheus_rule_files }}"
+  tags:
+    - observability
+    - prometheus
+    - prometheus-rules
+    - prometheus-provisioning
+
+- name: Render staged site-specific Prometheus alert rules
+  ansible.builtin.template:
+    src: extra-rules.yml.j2
+    dest: "{{ prometheus_staging_rules_dir }}/extra-rules.yml"
+    owner: root
+    group: "{{ prometheus_config_group }}"
+    mode: "0640"
+  when: prometheus_extra_rules | length > 0
+  tags:
+    - observability
+    - prometheus
+    - prometheus-rules
+    - prometheus-provisioning
+
+- name: Remove disabled staged site-specific Prometheus alert rules
+  ansible.builtin.file:
+    path: "{{ prometheus_staging_rules_dir }}/extra-rules.yml"
+    state: absent
+  when: prometheus_extra_rules | length == 0
+  tags:
+    - observability
+    - prometheus
+    - prometheus-rules
+    - prometheus-provisioning
+
+- name: Find staged Prometheus alert rule files
+  ansible.builtin.find:
+    paths: "{{ prometheus_staging_rules_dir }}"
+    patterns:
+      - "*.yml"
+      - "*.yaml"
+    file_type: file
+  register: prometheus_staged_rules_before_prune
+  tags:
+    - observability
+    - prometheus
+    - prometheus-rules
+    - prometheus-provisioning
+
+- name: Prune obsolete staged Prometheus alert rule files
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ prometheus_staged_rules_before_prune.files }}"
+  loop_control:
+    label: "{{ item.path }}"
+  vars:
+    prometheus_expected_rule_files: >-
+      {{ prometheus_rule_files + (['extra-rules.yml'] if prometheus_extra_rules | length > 0 else []) }}
+  when: item.path | basename not in prometheus_expected_rule_files
+  tags:
+    - observability
+    - prometheus
+    - prometheus-rules
+    - prometheus-provisioning

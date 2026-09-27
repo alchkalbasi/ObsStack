@@ -1,0 +1,24 @@
+{{/*
+  Shared building blocks for every notification channel.
+  Label conventions come from the prometheus role: env, dc, role, instance, severity.
+*/}}
+
+{{/* One-line title: "[FIRING:2] NodeDiskFull (production)" */}}
+{{ define "obsstack.title" -}}
+[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ .CommonLabels.alertname }}
+{{- with .CommonLabels.env }} ({{ . }}){{ end }}
+{{- end }}
+
+{{/* Plain-text body listing every alert in the group. */}}
+{{ define "obsstack.text" -}}
+{{ range .Alerts -}}
+{{ if eq .Status "firing" }}FIRING{{ else }}RESOLVED{{ end }} | {{ or .Labels.severity "unknown" | toUpper }} | {{ or .Labels.instance "n/a" }}
+{{ with .Annotations.summary }}{{ . }}
+{{ end -}}
+{{ with .Annotations.description }}{{ . }}
+{{ end -}}
+{{ with .Labels.dc }}dc: {{ . }}  {{ end }}{{ with .Labels.role }}role: {{ . }}  {{ end }}started: {{ .StartsAt.Format "2006-01-02 15:04:05 MST" }}
+{{ if eq .Status "resolved" }}resolved: {{ .EndsAt.Format "2006-01-02 15:04:05 MST" }}
+{{ end }}
+{{ end -}}
+{{- end }}

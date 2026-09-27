@@ -1,0 +1,15 @@
+---
+- name: Configure Grafana servers
+  hosts: grafana_servers
+  become: true
+  gather_facts: false
+  pre_tasks:
+    - name: Gather Grafana host facts
+      ansible.builtin.setup:
+      tags:
+        - always
+  roles:
+    - role: grafana
+  tags:
+    - observability
+    - grafana

@@ -1,0 +1,32 @@
+---
+- name: Validate Grafana deployment variables
+  ansible.builtin.import_tasks: validate.yml
+  tags:
+    - observability
+    - grafana
+    - grafana-install
+    - grafana-provisioning
+    - grafana-deploy
+
+- name: Prepare Grafana Compose deployment
+  ansible.builtin.import_tasks: install.yml
+  tags:
+    - observability
+    - grafana
+    - grafana-install
+
+- name: Configure Grafana provisioning
+  ansible.builtin.import_tasks: provisioning.yml
+  tags:
+    - observability
+    - grafana
+    - grafana-provisioning
+
+- name: Start and verify Grafana
+  ansible.builtin.import_tasks: deploy.yml
+  tags:
+    - observability
+    - grafana
+    - grafana-install
+    - grafana-provisioning
+    - grafana-deploy

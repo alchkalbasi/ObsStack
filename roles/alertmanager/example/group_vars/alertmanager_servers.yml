@@ -1,0 +1,63 @@
+---
+# Prometheus (in its own Compose project) must reach this address; set
+# prometheus_alertmanagers: ["<this IP>:9093"] on the Prometheus hosts.
+alertmanager_bind_ip: 192.0.2.40
+alertmanager_external_url: http://alertmanager.internal:9093
+
+# Email receivers share these settings.
+alertmanager_smtp_smarthost: smtp.example.com:587
+alertmanager_smtp_from: alertmanager@example.com
+alertmanager_smtp_auth_username: alertmanager@example.com
+alertmanager_smtp_auth_password: "{{ vault_alertmanager_smtp_password }}"
+
+# Unmatched alerts go to the team chat.
+alertmanager_route_receiver: team-chat
+
+# Pages go to on-call, and continue to the team chat too.
+alertmanager_routes:
+  - receiver: oncall
+    matchers:
+      - severity = "page"
+    repeat_interval: 1h
+    continue: true
+  - receiver: team-chat
+    matchers:
+      - severity = "page"
+  # Staging warnings stay quiet outside working hours.
+  - receiver: team-chat
+    matchers:
+      - env = "staging"
+      - severity = "warning"
+    mute_time_intervals:
+      - off-hours
+
+alertmanager_time_intervals:
+  - name: off-hours
+    time_intervals:
+      - times:
+          - start_time: "18:00"
+            end_time: "24:00"
+          - start_time: "00:00"
+            end_time: "08:00"
+        location: Asia/Tehran
+      - weekdays: ["friday"]
+        location: Asia/Tehran
+
+# Message formatting comes from the role's files/templates/*.tmpl, so the
+# receivers below do not set title/text/message.
+alertmanager_receivers:
+  - name: team-chat
+    # Mattermost incoming webhook (Slack-compatible).
+    slack_configs:
+      - api_url: "{{ vault_alertmanager_mattermost_webhook }}"
+        channel: "#alerts"
+        send_resolved: true
+
+  - name: oncall
+    telegram_configs:
+      - bot_token: "{{ vault_alertmanager_telegram_bot_token }}"
+        chat_id: -1001234567890
+        send_resolved: true
+    email_configs:
+      - to: oncall@example.com
+        send_resolved: true

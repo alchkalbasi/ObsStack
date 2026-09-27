@@ -1,0 +1,75 @@
+---
+- name: Verify Prometheus role
+  hosts: all
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Check generated Prometheus discovery files
+      ansible.builtin.stat:
+        path: /opt/observability/prometheus/config/file_sd/node_exporter.yml
+      register: prometheus_file_sd_yaml
+
+    - name: Check legacy JSON discovery file is absent
+      ansible.builtin.stat:
+        path: /opt/observability/prometheus/config/file_sd/node_exporter.json
+      register: prometheus_file_sd_json
+
+    - name: Assert Prometheus discovery uses YAML files
+      ansible.builtin.assert:
+        that:
+          - prometheus_file_sd_yaml.stat.isreg | default(false)
+          - not prometheus_file_sd_json.stat.exists
+
+    - name: Wait for Prometheus readiness
+      ansible.builtin.uri:
+        url: http://127.0.0.1:9090/-/ready
+        status_code: 200
+      register: prometheus_ready
+      retries: 30
+      delay: 2
+      until: prometheus_ready.status == 200
+
+    - name: Read active Prometheus targets
+      ansible.builtin.uri:
+        url: http://127.0.0.1:9090/api/v1/targets?state=active
+        return_content: true
+      register: prometheus_targets_api
+      retries: 15
+      delay: 2
+      until: >-
+        prometheus_targets_api.json.status == 'success'
+        and prometheus_targets_api.json.data.activeTargets | length == 1
+
+    - name: Assert hashmod selected the expected target count
+      ansible.builtin.assert:
+        that:
+          - prometheus_targets_api.json.status == 'success'
+          - prometheus_targets_api.json.data.activeTargets | length == 1
+
+    - name: Read loaded Prometheus rules
+      ansible.builtin.uri:
+        url: http://127.0.0.1:9090/api/v1/rules
+        return_content: true
+      register: prometheus_rules_api
+
+    - name: Assert expected Prometheus rule groups are loaded
+      ansible.builtin.assert:
+        that:
+          - prometheus_rules_api.json.status == 'success'
+          - >-
+            'node-exporter' in
+            (prometheus_rules_api.json.data.groups | map(attribute='name') | list)
+          - >-
+            'prometheus-self' in
+            (prometheus_rules_api.json.data.groups | map(attribute='name') | list)
+
+    - name: Run Prometheus filter plugin tests
+      ansible.builtin.command:
+        argv:
+          - "{{ ansible_playbook_python }}"
+          - -m
+          - pytest
+          - "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') }}/filter_plugins/tests"
+      delegate_to: localhost
+      become: false
+      changed_when: false

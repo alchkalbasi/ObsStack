@@ -1,0 +1,25 @@
+---
+networks:
+  prinet:
+    external: true
+  pubnet:
+    external: true
+
+services:
+  grafana:
+    image: "dhi.io/grafana:${GRAFANA_TAG:?GRAFANA_TAG must be set}"
+    restart: "${RESTART_POLICY:-unless-stopped}"
+    container_name: "${GRAFANA_CONTAINER_NAME:-grafana}"
+    ports:
+      - "127.0.0.1:${PORT:-3000}:3000"
+    networks:
+      - "${GRAFANA_NETWORK1:-prinet}"
+      - "${GRAFANA_NETWORK2:-pubnet}"
+    volumes:
+      - ./grafana-data:/var/lib/grafana
+      - ./provisioning:/etc/grafana/provisioning
+    environment:
+      GF_SECURITY_ADMIN_USER: "${GRAFANA_USERNAME:?GRAFANA_USERNAME must be set}"
+      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_PASSWORD:?GRAFANA_PASSWORD must be set}"
+      GF_PATHS_PROVISIONING: /etc/grafana/provisioning
+      GF_PATHS_DATA: /var/lib/grafana

@@ -1,0 +1,12 @@
+---
+groups:
+  - name: snmp-exporter
+    rules:
+      - alert: SnmpExporterDown
+        expr: up{job="snmp_exporter"} == 0
+        for: 10m
+        labels:
+          severity: page
+        annotations:
+          summary: "SNMP Exporter is unavailable on {{ $labels.instance }}"
+          description: "Prometheus has failed to scrape SNMP Exporter for 10 minutes."
