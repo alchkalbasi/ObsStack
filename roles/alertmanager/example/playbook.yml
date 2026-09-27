@@ -1,0 +1,15 @@
+---
+- name: Configure Alertmanager servers
+  hosts: alertmanager_servers
+  become: true
+  gather_facts: false
+  pre_tasks:
+    - name: Gather Alertmanager host facts
+      ansible.builtin.setup:
+      tags:
+        - always
+  roles:
+    - role: alertmanager
+  tags:
+    - observability
+    - alertmanager

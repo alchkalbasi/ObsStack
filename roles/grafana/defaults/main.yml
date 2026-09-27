@@ -1,6 +1,6 @@
 ---
 # Set the exact DHI runtime tag in inventory; never upgrade implicitly to latest.
-grafana_tag: ""
+grafana_tag: "13.2"
 grafana_container_name: grafana
 grafana_restart_policy: unless-stopped
 grafana_pull_policy: missing
@@ -25,9 +25,10 @@ grafana_password: "" # Required; store in Ansible Vault.
 # Relative provisioning filename -> native Grafana YAML mapping.
 # Only listed files are managed; other existing provisioning files are retained.
 grafana_provisioning: {}
-# Controller-side dashboard JSON files: [{src: /path/dashboard.json, name: dashboard.json}].
-# Copied into provisioning/dashboards/json; configure a file provider to read it.
-grafana_dashboard_files: []
+# Controller-side directory of dashboard JSON files, e.g. "{{ role_path }}/files/dashboards".
+# Every *.json file directly in it is copied into provisioning/dashboards/json;
+# configure a dashboards/*.yml file provider (in grafana_provisioning) to read it.
+grafana_dashboard_dir: ""
 
 grafana_healthcheck_enabled: true
 grafana_healthcheck_retries: 30

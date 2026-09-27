@@ -24,16 +24,14 @@
       - grafana_manage_data_ownership is boolean
       - grafana_compose_wait_timeout | int > 0
       - grafana_provisioning is mapping
-      - grafana_dashboard_files is sequence
-      - grafana_dashboard_files is not string
-      - grafana_dashboard_files is not mapping
+      - grafana_dashboard_dir is string
       - grafana_healthcheck_enabled is boolean
       - grafana_healthcheck_retries | int > 0
       - grafana_healthcheck_delay | int > 0
     fail_msg: >-
       Grafana requires Linux host facts, an explicit grafana_tag, and valid
-      grafana_* settings. Docker Compose and external prinet/pubnet networks
-      must already exist on the host.
+      grafana_* settings. Docker Compose must already be installed on the host;
+      the prinet/pubnet networks are created automatically if missing.
   tags:
     - observability
     - grafana
@@ -73,14 +71,28 @@
     - grafana-provisioning
     - grafana-deploy
 
-- name: Validate Grafana dashboard file destinations
+- name: Check Grafana dashboard directory exists
+  ansible.builtin.stat:
+    path: "{{ grafana_dashboard_dir }}"
+  delegate_to: localhost
+  become: false
+  run_once: true
+  register: grafana_dashboard_dir_stat
+  when: grafana_dashboard_dir | length > 0
+  tags:
+    - observability
+    - grafana
+    - grafana-install
+    - grafana-provisioning
+    - grafana-deploy
+
+- name: Validate Grafana dashboard directory
   ansible.builtin.assert:
     that:
-      - item is mapping
-      - item.src | default('') | length > 0
-      - item.name | default('') is match('^[A-Za-z0-9_][A-Za-z0-9_.-]*\.json$')
-    fail_msg: Each dashboard requires a controller-side src and a JSON basename in name.
-  loop: "{{ grafana_dashboard_files }}"
+      - grafana_dashboard_dir_stat.stat.exists
+      - grafana_dashboard_dir_stat.stat.isdir
+    fail_msg: grafana_dashboard_dir must be an existing directory on the controller.
+  when: grafana_dashboard_dir | length > 0
   tags:
     - observability
     - grafana

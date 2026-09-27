@@ -1,0 +1,5 @@
+---
+alertmanager_container_config_dir: /etc/alertmanager
+alertmanager_container_config_file: "{{ alertmanager_container_config_dir }}/config.yml"
+alertmanager_container_templates_dir: "{{ alertmanager_container_config_dir }}/templates"
+alertmanager_container_data_dir: /alertmanager

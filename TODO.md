@@ -1,6 +1,6 @@
 #TODO List
 
-- [ ] Exporters roles
+- [x] Exporters roles
     - [x] node
         - [x] test
     - [x] cadvisor
@@ -18,11 +18,15 @@
     - [x] mikrotik exporter (MKTXP)
         - [x] test
 
-- [ ] Grafana
+- [x] Grafana
     - [x] write role
-    - [ ] review
-    - [ ] provisioned dashboards
+    - [x] review
+    - [x] provisioned dashboards
 
 - [ ] Prometheus
     - [x] review
     - [ ] final edits and make it prod ready
+
+- [ ] Alertmanager
+    - [ ] write role
+    - [ ]

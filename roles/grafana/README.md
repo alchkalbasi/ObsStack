@@ -14,11 +14,13 @@ Deploys `dhi.io/grafana` with Docker Compose using this host layout:
     └── datasources/
 ```
 
-Grafana binds to `127.0.0.1:3000` by default and joins the existing external
-`prinet` and `pubnet` networks. The role does not install Docker or create these
-networks. Docker Compose v2.18+ and the repository's `community.docker`
-collection are prerequisites. Authenticate to `dhi.io` as the Docker client
-user used by Ansible (`root` with the supplied become-enabled playbook).
+Grafana binds to `127.0.0.1:3000` by default and joins the external `prinet`
+and `pubnet` networks, creating them (as plain `docker network create`
+networks, no custom driver options) if they don't already exist. The role does
+not install Docker. Docker Compose v2.18+ and the repository's
+`community.docker` collection are prerequisites. Authenticate to `dhi.io` as
+the Docker client user used by Ansible (`root` with the supplied
+become-enabled playbook).
 
 ## Usage
 
@@ -64,7 +66,7 @@ See [defaults/main.yml](defaults/main.yml) for all variables.
 | `grafana_runtime_uid`, `grafana_runtime_gid` | `65532`, `65532` | Bind-mount ownership for the DHI runtime user |
 | `grafana_manage_data_ownership` | `false` | Opt-in recursive ownership repair for existing data |
 | `grafana_provisioning` | `{}` | Relative YAML filenames mapped to native provisioning documents |
-| `grafana_dashboard_files` | `[]` | Controller-side JSON files to copy |
+| `grafana_dashboard_dir` | `""` | Controller-side directory of dashboard JSON files to copy |
 | `grafana_healthcheck_enabled` | `true` | Wait for `/api/health` and database status `ok` from the target host |
 
 The [DHI Grafana guide](https://hub.docker.com/hardened-images/catalog/dhi/grafana/guides)
@@ -100,11 +102,19 @@ escape literal dollar signs as `$$` in inline provisioning secrets. Refer to
 for the native schema and substitution rules. Access-control provisioning depends
 on the Grafana edition and features available in your selected image.
 
-Dashboard files are copied to `provisioning/dashboards/json/` and checked for
-valid JSON. Supply a dashboard provider pointing at
+Every `*.json` file directly inside `grafana_dashboard_dir` (a controller-side
+directory, not recursive) is copied to `provisioning/dashboards/json/` and
+checked for valid JSON. Supply a dashboard provider pointing at
 `/etc/grafana/provisioning/dashboards/json`, as in the example. A polling interval
 of 30 seconds detects bind-mounted file changes. Prometheus URLs must be reachable
 from the Grafana container; `localhost` refers to the Grafana container itself.
+
+[files/dashboards/](files/dashboards/) ships ready-to-use dashboards
+(`node.json`, `cAdvisor.json`, `ssl.json`, `icmp.json`, `loki-nginx.json`) whose
+panels expect datasource uids `prometheus` and `loki`, matching the example
+provisioning above. Point `grafana_dashboard_dir` at
+`{{ role_path }}/files/dashboards` to use them as-is, as in
+[example/group_vars/grafana_servers.yml](example/group_vars/grafana_servers.yml).
 
 Provisioning YAML changes recreate Grafana so startup provisioning runs again.
 Compose detects environment/image changes, while dashboard JSON updates are

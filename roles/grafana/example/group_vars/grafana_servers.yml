@@ -1,6 +1,6 @@
 ---
 # Replace with the exact DHI runtime image tag already approved for your host.
-grafana_tag: REPLACE_WITH_YOUR_DHI_TAG
+grafana_tag: 13.2
 grafana_username: admin
 grafana_password: "{{ vault_grafana_password }}"
 grafana_port: 3000
@@ -17,6 +17,13 @@ grafana_provisioning:
         url: http://prometheus.internal:9090
         isDefault: true
         editable: false
+      # Uncomment once a Loki datasource is deployed; loki-nginx.json expects this uid.
+      # - name: Loki
+      #   uid: loki
+      #   type: loki
+      #   access: proxy
+      #   url: http://loki.internal:3100
+      #   editable: false
   dashboards/obsstack.yml:
     apiVersion: 1
     providers:
@@ -30,8 +37,10 @@ grafana_provisioning:
         options:
           path: /etc/grafana/provisioning/dashboards/json
 
-# Paths are on the Ansible controller. Export plain dashboard JSON, not an API
-# response wrapper. Its data source UID should match the provisioned data source.
-# grafana_dashboard_files:
-#   - src: /path/to/dashboards/node-exporter.json
-#     name: node-exporter.json
+# Directory is on the Ansible controller. Every *.json file directly inside it
+# is copied and provisioned - no per-file list to maintain. {{ role_path }}
+# resolves to this role's own directory, where dashboards ship by default;
+# point at your own controller directory instead if you keep dashboards elsewhere.
+# loki-nginx.json in that directory needs the Loki datasource above; move it out
+# until Loki is deployed, otherwise its panels just show "datasource not found".
+grafana_dashboard_dir: "{{ role_path }}/files/dashboards"

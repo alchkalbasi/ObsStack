@@ -1,0 +1,15 @@
+---
+- name: Deploy Alertmanager
+  community.docker.docker_compose_v2:
+    project_src: "{{ alertmanager_dir }}"
+    state: present
+    pull: "{{ alertmanager_pull_policy }}"
+    remove_orphans: true
+    recreate: >-
+      {{
+        'always'
+        if alertmanager_compose_copy is changed or alertmanager_env_template is changed
+        else 'auto'
+      }}
+    wait: true
+    wait_timeout: "{{ alertmanager_compose_wait_timeout }}"

@@ -1,0 +1,107 @@
+---
+# Alertmanager container and Compose deployment.
+alertmanager_version: "0.34.1"
+alertmanager_image: "prom/alertmanager:v{{ alertmanager_version }}"
+alertmanager_container_name: alertmanager
+alertmanager_runtime_user: "65534:65534"
+alertmanager_config_group: "{{ (alertmanager_runtime_user | string).split(':') | last }}"
+alertmanager_restart_policy: unless-stopped
+alertmanager_pull_policy: missing
+alertmanager_compose_wait_timeout: 120
+alertmanager_stop_grace_period: 30s
+alertmanager_log_max_size: 10m
+alertmanager_log_max_files: "3"
+alertmanager_healthcheck_interval: 30s
+alertmanager_healthcheck_timeout: 5s
+alertmanager_healthcheck_retries: 3
+alertmanager_healthcheck_start_period: 10s
+
+# Host paths. compose.yml, .env, config.yml and templates/ live together in
+# alertmanager_dir; silences and the notification log live in alertmanager_data_dir.
+alertmanager_observability_dir: /opt/services/observability
+alertmanager_owner: "{{ ansible_user }}"
+alertmanager_group: "{{ ansible_user }}"
+alertmanager_dir: "{{ alertmanager_observability_dir }}/alertmanager"
+alertmanager_templates_dir: "{{ alertmanager_dir }}/templates"
+alertmanager_data_dir: /var/lib/alertmanager
+alertmanager_manage_data_ownership: true
+
+# Runtime flags. Prometheus must be able to reach alertmanager_web_listen_address;
+# a Prometheus container cannot reach the host's 127.0.0.1, so bind a private IP
+# when Prometheus runs in its own Compose project.
+alertmanager_bind_ip: "127.0.0.1"
+alertmanager_web_listen_address: "{{ alertmanager_bind_ip }}:9093"
+alertmanager_external_url: ""
+alertmanager_data_retention: 120h
+alertmanager_log_level: info
+alertmanager_extra_flags: []
+
+# Controller-side directory of notification templates. Every *.tmpl file directly
+# inside it is copied to alertmanager_templates_dir; other deployed *.tmpl files
+# are removed. Point this at your own directory to replace the shipped templates.
+alertmanager_templates_src: "{{ role_path }}/files/templates"
+
+# ---------------------------------------------------------------------------
+# config.yml
+# Each block below renders one section of templates/config.yml.j2.
+# Reference: https://prometheus.io/docs/alerting/latest/configuration/
+# ---------------------------------------------------------------------------
+
+# global: -------------------------------------------------------------------
+alertmanager_resolve_timeout: 5m
+
+# Global SMTP settings used by every email receiver. An empty smarthost disables
+# the block. Keep the password in Ansible Vault.
+alertmanager_smtp_smarthost: ""   # host:port, e.g. smtp.example.com:587
+alertmanager_smtp_from: ""
+alertmanager_smtp_auth_username: ""
+alertmanager_smtp_auth_password: ""
+alertmanager_smtp_require_tls: true
+
+# Any other global key (slack_api_url, telegram_api_url, http_config, ...).
+alertmanager_global_extra: {}
+
+# route: --------------------------------------------------------------------
+# The root route catches every alert. The prometheus role labels alerts with
+# env/role/dc and uses severity "page" or "warning".
+alertmanager_route_receiver: default
+alertmanager_route_group_by:
+  - alertname
+  - env
+  - dc
+alertmanager_route_group_wait: 30s
+alertmanager_route_group_interval: 5m
+alertmanager_route_repeat_interval: 4h
+
+# Child routes, evaluated top to bottom; the first match wins unless
+# "continue: true" is set. Entries use native Alertmanager route syntax.
+alertmanager_routes: []
+#  - receiver: oncall
+#    matchers:
+#      - severity = "page"
+#    repeat_interval: 1h
+
+# inhibit_rules: ------------------------------------------------------------
+# Silence warnings for a target while a page-level alert fires for it.
+alertmanager_inhibit_rules:
+  - source_matchers:
+      - severity = "page"
+    target_matchers:
+      - severity = "warning"
+    equal:
+      - env
+      - instance
+
+# time_intervals: -----------------------------------------------------------
+# Named intervals referenced by mute_time_intervals/active_time_intervals in routes.
+alertmanager_time_intervals: []
+#  - name: weekends
+#    time_intervals:
+#      - weekdays: ["saturday", "sunday"]
+
+# receivers: ----------------------------------------------------------------
+# Native Alertmanager receiver definitions. A receiver with only a name
+# discards notifications, so the defaults are valid but deliver nothing:
+# define real receivers in inventory. Keep tokens and passwords in Ansible Vault.
+alertmanager_receivers:
+  - name: default

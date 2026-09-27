@@ -1,0 +1,12 @@
+{{/*
+  Slack and Mattermost (slack_configs pointed at a Mattermost incoming webhook).
+  Overrides the built-in defaults so slack_configs receivers need no title/text.
+*/}}
+
+{{ define "slack.default.title" -}}
+{{ template "obsstack.title" . }}
+{{- end }}
+
+{{ define "slack.default.text" -}}
+{{ template "obsstack.text" . }}
+{{- end }}

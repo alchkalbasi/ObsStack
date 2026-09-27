@@ -17,15 +17,15 @@
 
 - name: Copy Grafana dashboard JSON files
   ansible.builtin.copy:
-    src: "{{ item.src }}"
-    dest: "{{ grafana_dir }}/provisioning/dashboards/json/{{ item.name }}"
+    src: "{{ item }}"
+    dest: "{{ grafana_dir }}/provisioning/dashboards/json/{{ item | basename }}"
     owner: "{{ grafana_owner }}"
     group: "{{ grafana_runtime_gid }}"
     mode: "0640"
     validate: "{{ ansible_facts.python.executable }} -m json.tool %s"
-  loop: "{{ grafana_dashboard_files }}"
+  loop: "{{ query('fileglob', grafana_dashboard_dir ~ '/*.json') if grafana_dashboard_dir | length > 0 else [] }}"
   loop_control:
-    label: "{{ item.name }}"
+    label: "{{ item | basename }}"
   tags:
     - observability
     - grafana

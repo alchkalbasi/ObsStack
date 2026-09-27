@@ -13,3 +13,6 @@ __pycache__/
 
 # secret files
 /files/
+
+# grafana dashboards
+roles/grafana/files/dashboards/*.json

@@ -1,0 +1,36 @@
+---
+# Tags set on an import apply to every task in the imported file.
+- name: Validate Alertmanager deployment variables
+  ansible.builtin.import_tasks: validate.yml
+  tags:
+    - observability
+    - alertmanager
+    - alertmanager-install
+    - alertmanager-config
+    - alertmanager-templates
+    - alertmanager-deploy
+
+- name: Prepare Alertmanager Compose deployment
+  ansible.builtin.import_tasks: install.yml
+  tags:
+    - observability
+    - alertmanager
+    - alertmanager-install
+
+- name: Configure Alertmanager
+  ansible.builtin.import_tasks: config.yml
+  tags:
+    - observability
+    - alertmanager
+    - alertmanager-config
+    - alertmanager-templates
+
+- name: Start Alertmanager
+  ansible.builtin.import_tasks: deploy.yml
+  tags:
+    - observability
+    - alertmanager
+    - alertmanager-install
+    - alertmanager-config
+    - alertmanager-templates
+    - alertmanager-deploy

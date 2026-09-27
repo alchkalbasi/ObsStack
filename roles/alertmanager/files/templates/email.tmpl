@@ -1,0 +1,8 @@
+{{/*
+  Email subject. The built-in HTML body is kept; it already lists every alert
+  with its labels and annotations.
+*/}}
+
+{{ define "email.default.subject" -}}
+{{ template "obsstack.title" . }}
+{{- end }}

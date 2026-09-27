@@ -1,0 +1,26 @@
+---
+# Use the reload endpoint rather than SIGHUP: it returns an error when the new
+# configuration is rejected, so a failed reload fails the play.
+- name: Reload Alertmanager
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - --project-directory
+      - "{{ alertmanager_dir }}"
+      - exec
+      - --no-TTY
+      - alertmanager
+      - wget
+      - --quiet
+      - --output-document=-
+      - --post-data=
+      - "http://127.0.0.1:9093{{ alertmanager_external_url | urlsplit('path') | regex_replace('/+$', '') }}/-/reload"
+  changed_when: true
+  tags:
+    - observability
+    - alertmanager
+    - alertmanager-install
+    - alertmanager-config
+    - alertmanager-templates
+    - alertmanager-deploy

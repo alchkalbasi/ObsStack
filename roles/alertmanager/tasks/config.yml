@@ -1,0 +1,78 @@
+---
+# Templates are copied first because config.yml validation loads them.
+- name: Copy Alertmanager notification templates
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "{{ alertmanager_templates_dir }}/{{ item | basename }}"
+    owner: "{{ alertmanager_owner }}"
+    group: "{{ alertmanager_group }}"
+    mode: "0644"
+  loop: "{{ query('ansible.builtin.fileglob', alertmanager_templates_src ~ '/*.tmpl') | sort }}"
+  loop_control:
+    label: "{{ item | basename }}"
+  register: alertmanager_templates_copy
+  notify: Reload Alertmanager
+
+- name: Find deployed Alertmanager notification templates
+  ansible.builtin.find:
+    paths: "{{ alertmanager_templates_dir }}"
+    patterns:
+      - "*.tmpl"
+    file_type: file
+  register: alertmanager_deployed_templates
+
+- name: Remove obsolete Alertmanager notification templates
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ alertmanager_deployed_templates.files }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
+  vars:
+    alertmanager_source_templates: >-
+      {{ query('ansible.builtin.fileglob', alertmanager_templates_src ~ '/*.tmpl') | map('basename') | list }}
+  when: item.path | basename not in alertmanager_source_templates
+  register: alertmanager_templates_prune
+  notify: Reload Alertmanager
+
+# amtool validates the candidate file (and the templates it loads) before it
+# replaces the live config.yml, so a broken configuration never lands on disk.
+- name: Render Alertmanager configuration
+  ansible.builtin.template:
+    src: config.yml.j2
+    dest: "{{ alertmanager_dir }}/config.yml"
+    owner: root
+    group: "{{ alertmanager_config_group }}"
+    mode: "0640"
+    validate: >-
+      docker run --rm --network none --user 0:0 --entrypoint amtool
+      --volume %s:{{ alertmanager_container_config_file }}:ro
+      --volume {{ alertmanager_templates_dir }}:{{ alertmanager_container_templates_dir }}:ro
+      {{ alertmanager_image }} check-config {{ alertmanager_container_config_file }}
+  # config.yml can hold SMTP passwords and chat tokens.
+  diff: false
+  register: alertmanager_config_template
+  notify: Reload Alertmanager
+
+- name: Validate Alertmanager configuration with changed notification templates
+  ansible.builtin.command:
+    argv:
+      - docker
+      - run
+      - --rm
+      - --network
+      - none
+      - --user
+      - "{{ alertmanager_runtime_user }}"
+      - --entrypoint
+      - amtool
+      - --volume
+      - "{{ alertmanager_dir }}:{{ alertmanager_container_config_dir }}:ro"
+      - "{{ alertmanager_image }}"
+      - check-config
+      - "{{ alertmanager_container_config_file }}"
+  changed_when: false
+  when:
+    - alertmanager_templates_copy is changed or alertmanager_templates_prune is changed
+    - alertmanager_config_template is not changed
+    - not ansible_check_mode

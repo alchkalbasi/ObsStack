@@ -1,0 +1,8 @@
+---
+all:
+  children:
+    alertmanager_servers:
+      hosts:
+        alertmanager:
+          ansible_host: 192.0.2.40
+          ansible_user: debian
