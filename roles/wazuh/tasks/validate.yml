@@ -1,0 +1,30 @@
+---
+- name: Validate Wazuh host and deployment settings
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.system | default('') == 'Linux'
+      - wazuh_version is match('^4\.[0-9]+\.[0-9]+$')
+      - wazuh_dir.startswith('/') and wazuh_dir != '/'
+      - wazuh_restart_policy in ['no', 'always', 'on-failure', 'unless-stopped']
+      - wazuh_pull_policy in ['always', 'missing', 'never', 'policy']
+      - wazuh_indexer_heap is match('^[0-9]+[mg]$')
+      - wazuh_manage_sysctl is boolean
+    fail_msg: >-
+      Wazuh needs a Linux host with Docker Compose v2 already installed, a pinned
+      4.x wazuh_version, and valid wazuh_* settings (see defaults/main.yml).
+
+- name: Require strong Wazuh passwords
+  ansible.builtin.assert:
+    that:
+      - item is string
+      - item is match('^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8,64}$')
+      - "'$' not in item and '&' not in item"
+    fail_msg: >-
+      Set wazuh_indexer_password, wazuh_dashboard_password and wazuh_api_password
+      in Ansible Vault: 8-64 characters with upper, lower, digit and symbol, and
+      without $ or & (the Wazuh images reject them).
+  loop:
+    - "{{ wazuh_indexer_password }}"
+    - "{{ wazuh_dashboard_password }}"
+    - "{{ wazuh_api_password }}"
+  no_log: true

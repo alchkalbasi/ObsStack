@@ -1,0 +1,21 @@
+---
+galaxy_info:
+  role_name: wazuh
+  author: ObsStack
+  description: Deploy a single-node Wazuh stack (manager, indexer, dashboard) with Docker Compose.
+  license: Apache-2.0
+  min_ansible_version: "2.16"
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+        - trixie
+    - name: Ubuntu
+      versions:
+        - jammy
+        - noble
+  galaxy_tags:
+    - security
+    - siem
+    - wazuh
+dependencies: []

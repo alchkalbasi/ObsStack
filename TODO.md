@@ -28,5 +28,14 @@
     - [ ] final edits and make it prod ready
 
 - [ ] Alertmanager
+    - [x] write role
+    - [ ] test
+
+- [ ] Wazuh
     - [ ] write role
-    - [ ]
+    - [ ] test
+
+- [ ] Wazuh agent (roles/agents/wazuh-agent)
+    - [x] write role (systemd and docker modes)
+    - [ ] test systemd mode
+    - [ ] test docker mode

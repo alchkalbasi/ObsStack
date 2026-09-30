@@ -1,0 +1,90 @@
+---
+# How the agent runs on the host:
+#   systemd - official wazuh-agent package from the Wazuh apt repository (Debian/Ubuntu).
+#   docker  - official wazuh/wazuh-agent image; the host filesystem is mounted read-only
+#             at wazuh_agent_host_root and monitored from there.
+wazuh_agent_mode: systemd
+
+# Keep this equal to (or lower than) the manager's wazuh_version.
+wazuh_agent_version: "4.14.8"
+
+# Required: address of the Wazuh manager as the agent reaches it.
+wazuh_agent_manager_address: ""
+wazuh_agent_manager_port: 1514
+wazuh_agent_enrollment_address: "{{ wazuh_agent_manager_address }}"
+wazuh_agent_enrollment_port: 1515
+
+# Must be unique per manager; re-enrolling a name that is still connected fails.
+wazuh_agent_name: "{{ inventory_hostname }}"
+wazuh_agent_groups:
+  - default
+# Only needed when the manager has <use_password>yes</use_password>. Store in Ansible Vault.
+wazuh_agent_enrollment_password: ""
+
+# Fail the play unless the agent reports "connected" to the manager.
+wazuh_agent_wait_for_connection: true
+wazuh_agent_connection_timeout: 180
+
+# Template used for ossec.conf. Point this at your own template to take full control.
+wazuh_agent_config_template: ossec.conf.j2
+
+# Modules. In docker mode the agent sees the container's processes and packages,
+# not the host's, so host-inventory modules are off there by default.
+wazuh_agent_syscollector_enabled: "{{ wazuh_agent_mode == 'systemd' }}"
+wazuh_agent_sca_enabled: "{{ wazuh_agent_mode == 'systemd' }}"
+wazuh_agent_rootcheck_enabled: "{{ wazuh_agent_mode == 'systemd' }}"
+wazuh_agent_active_response_enabled: "{{ wazuh_agent_mode == 'systemd' }}"
+wazuh_agent_command_monitoring_enabled: "{{ wazuh_agent_mode == 'systemd' }}"
+# journald needs the host journal and libsystemd, so it is systemd mode only.
+wazuh_agent_journald_enabled: "{{ wazuh_agent_mode == 'systemd' }}"
+
+# File integrity monitoring. Paths are host paths; docker mode prefixes them with
+# wazuh_agent_host_root. An item is a path or {path: ..., attributes: {realtime: "yes"}}.
+wazuh_agent_syscheck_enabled: true
+wazuh_agent_syscheck_frequency: 43200
+wazuh_agent_syscheck_directories:
+  - /etc
+  - /usr/bin
+  - /usr/sbin
+  - /bin
+  - /sbin
+  - /boot
+wazuh_agent_syscheck_ignore:
+  - /etc/mtab
+  - /etc/hosts.deny
+  - /etc/mail/statistics
+  - /etc/random-seed
+  - /etc/random.seed
+  - /etc/adjtime
+  - /etc/httpd/logs
+  - /etc/utmpx
+  - /etc/wtmpx
+  - /etc/cups/certs
+  - /etc/dumpdates
+  - /etc/svc/volatile
+
+# Log files to collect (host paths; prefixed in docker mode). Missing files are
+# skipped by the agent and picked up once they appear.
+wazuh_agent_localfiles:
+  - {location: /var/log/auth.log, log_format: syslog}
+  - {location: /var/log/syslog, log_format: syslog}
+  - {location: /var/log/kern.log, log_format: syslog}
+  - {location: /var/log/dpkg.log, log_format: syslog}
+
+# Raw XML appended inside an extra <ossec_config> block, for anything not covered above.
+wazuh_agent_extra_config: ""
+
+# systemd mode
+wazuh_agent_package_revision: "1"
+wazuh_agent_apt_repository: "deb [signed-by=/etc/apt/keyrings/wazuh.asc] https://packages.wazuh.com/4.x/apt/ stable main"
+wazuh_agent_apt_key_url: https://packages.wazuh.com/key/GPG-KEY-WAZUH
+# Hold the package so routine apt upgrades don't move the agent past the manager.
+wazuh_agent_hold_package: true
+
+# docker mode
+wazuh_agent_dir: /opt/services/security/wazuh-agent
+wazuh_agent_image: "wazuh/wazuh-agent:{{ wazuh_agent_version }}"
+wazuh_agent_container_name: wazuh-agent
+wazuh_agent_host_root: /host
+wazuh_agent_restart_policy: unless-stopped
+wazuh_agent_pull_policy: missing

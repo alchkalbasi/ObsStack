@@ -1,0 +1,12 @@
+---
+all:
+  children:
+    wazuh_agents:
+      hosts:
+        app01:
+          ansible_host: 192.0.2.41
+          ansible_user: debian
+        docker01:
+          ansible_host: 192.0.2.42
+          ansible_user: debian
+          wazuh_agent_mode: docker

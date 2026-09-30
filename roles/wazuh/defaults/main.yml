@@ -1,0 +1,31 @@
+---
+# One version for the manager, indexer and dashboard images. Pin it; upgrade on purpose.
+wazuh_version: "4.14.8"
+# Must match the wazuh-docker release of wazuh_version (see its generate-indexer-certs.yml).
+wazuh_certs_generator_tag: "0.0.4"
+
+wazuh_dir: /opt/services/security/wazuh
+wazuh_restart_policy: unless-stopped
+wazuh_pull_policy: missing
+wazuh_compose_wait_timeout: 600
+
+# Indexer JVM heap; about half of the RAM you give the indexer.
+wazuh_indexer_heap: 1g
+
+# Published ports as "[address:]port". Agents need 1514/1515; keep the rest private.
+wazuh_agent_listen: "0.0.0.0:1514"
+wazuh_enrollment_listen: "0.0.0.0:1515"
+wazuh_api_listen: "127.0.0.1:55000"
+wazuh_indexer_listen: "127.0.0.1:9200"
+wazuh_dashboard_listen: "0.0.0.0:443"
+
+# Required; store in Ansible Vault. 8-64 chars with upper, lower, digit and symbol; no $ or &.
+wazuh_indexer_password: ""    # indexer "admin" user, also the dashboard login
+wazuh_dashboard_password: ""  # indexer "kibanaserver" user, used by the dashboard
+wazuh_api_password: ""        # manager API "wazuh-wui" user
+
+# Controller-side ossec.conf. Point this at your own copy to customise the manager.
+wazuh_manager_config: wazuh/config/wazuh_cluster/wazuh_manager.conf
+
+# The indexer needs vm.max_map_count >= 262144. Disable if the host already manages it.
+wazuh_manage_sysctl: true

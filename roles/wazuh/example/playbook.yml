@@ -1,0 +1,9 @@
+---
+- name: Configure Wazuh servers
+  hosts: wazuh_servers
+  become: true
+  roles:
+    - role: wazuh
+  tags:
+    - security
+    - wazuh

@@ -1,0 +1,94 @@
+---
+- name: Create apt keyrings directory
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install Wazuh repository signing key
+  ansible.builtin.get_url:
+    url: "{{ wazuh_agent_apt_key_url }}"
+    dest: /etc/apt/keyrings/wazuh.asc
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Add Wazuh apt repository
+  ansible.builtin.apt_repository:
+    repo: "{{ wazuh_agent_apt_repository }}"
+    filename: wazuh
+    state: present
+    update_cache: true
+
+- name: Install Wazuh agent package
+  ansible.builtin.apt:
+    name: "wazuh-agent={{ wazuh_agent_version }}-{{ wazuh_agent_package_revision }}"
+    state: present
+    allow_change_held_packages: true
+    allow_downgrade: false
+  notify: Restart Wazuh agent
+
+- name: Pin Wazuh agent package version
+  ansible.builtin.dpkg_selections:
+    name: wazuh-agent
+    selection: "{{ 'hold' if wazuh_agent_hold_package else 'install' }}"
+
+- name: Render Wazuh agent configuration
+  ansible.builtin.template:
+    src: "{{ wazuh_agent_config_template }}"
+    dest: /var/ossec/etc/ossec.conf
+    owner: root
+    group: wazuh
+    mode: "0640"
+  notify: Restart Wazuh agent
+
+- name: Manage Wazuh enrollment password
+  ansible.builtin.copy:
+    content: "{{ wazuh_agent_enrollment_password }}\n"
+    dest: /var/ossec/etc/authd.pass
+    owner: root
+    group: wazuh
+    mode: "0640"
+  when: wazuh_agent_enrollment_password | length > 0
+  diff: false
+  no_log: true
+  notify: Restart Wazuh agent
+
+- name: Remove unused Wazuh enrollment password
+  ansible.builtin.file:
+    path: /var/ossec/etc/authd.pass
+    state: absent
+  when: wazuh_agent_enrollment_password | length == 0
+
+- name: Enable and start Wazuh agent
+  ansible.builtin.systemd_service:
+    name: wazuh-agent
+    enabled: true
+    state: started
+    daemon_reload: true
+
+# Apply pending restarts now so the connection check sees the new configuration.
+- name: Restart Wazuh agent if its configuration changed
+  ansible.builtin.meta: flush_handlers
+
+- name: Wait for Wazuh agent to connect to the manager
+  ansible.builtin.command: grep -q "status='connected'" /var/ossec/var/run/wazuh-agentd.state
+  register: wazuh_agent_state
+  until: wazuh_agent_state.rc == 0
+  retries: "{{ (wazuh_agent_connection_timeout | int / 5) | round(0, 'ceil') | int }}"
+  delay: 5
+  changed_when: false
+  failed_when: false
+  when: wazuh_agent_wait_for_connection
+
+- name: Report Wazuh agent connection failure
+  ansible.builtin.fail:
+    msg: >-
+      The Wazuh agent did not connect to {{ wazuh_agent_manager_address }} within
+      {{ wazuh_agent_connection_timeout }}s. Check /var/ossec/logs/ossec.log and that
+      ports {{ wazuh_agent_manager_port }} and {{ wazuh_agent_enrollment_port }} are reachable.
+  when:
+    - wazuh_agent_wait_for_connection
+    - wazuh_agent_state.rc != 0

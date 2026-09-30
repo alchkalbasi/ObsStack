@@ -1,0 +1,9 @@
+---
+- name: Configure Wazuh agents
+  hosts: wazuh_agents
+  become: true
+  roles:
+    - role: agents/wazuh-agent
+  tags:
+    - security
+    - wazuh-agent
