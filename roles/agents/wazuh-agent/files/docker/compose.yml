@@ -1,0 +1,40 @@
+---
+# Wazuh agent in a container, based on the official wazuh-docker agent files:
+# https://github.com/wazuh/wazuh-docker/tree/main/wazuh-agent
+# Settings and secrets come from .env next to this file (rendered by Ansible).
+name: wazuh-agent
+
+services:
+  wazuh.agent:
+    image: "${WAZUH_AGENT_IMAGE:?WAZUH_AGENT_IMAGE must be set}"
+    container_name: "${WAZUH_AGENT_CONTAINER_NAME:-wazuh-agent}"
+    restart: "${WAZUH_AGENT_RESTART_POLICY:-unless-stopped}"
+    # Host networking: the agent reports the host's addresses to the manager.
+    network_mode: host
+    environment:
+      # The image writes this to /var/ossec/etc/authd.pass on start when set.
+      WAZUH_REGISTRATION_PASSWORD: "${WAZUH_AGENT_ENROLLMENT_PASSWORD:-}"
+    volumes:
+      # etc keeps client.keys, so a recreated container keeps its agent ID.
+      - wazuh_agent_etc:/var/ossec/etc
+      - wazuh_agent_queue:/var/ossec/queue
+      # The image copies this over /var/ossec/etc/ossec.conf on every start.
+      - ./config/ossec.conf:/wazuh-config-mount/etc/ossec.conf:ro
+      - "/:${WAZUH_AGENT_HOST_ROOT:-/host}:ro,rslave"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - grep -q "status='connected'" /var/ossec/var/run/wazuh-agentd.state
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  wazuh_agent_etc:
+  wazuh_agent_queue:

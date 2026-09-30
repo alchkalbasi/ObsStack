@@ -1,0 +1,173 @@
+<!-- Managed by Ansible. Local changes will be overwritten. -->
+{% set root = wazuh_agent_host_root if wazuh_agent_mode == 'docker' else '' %}
+{% macro yesno(value) %}{{ 'yes' if value | bool else 'no' }}{% endmacro %}
+<ossec_config>
+  <client>
+    <server>
+      <address>{{ wazuh_agent_manager_address | e }}</address>
+      <port>{{ wazuh_agent_manager_port }}</port>
+      <protocol>tcp</protocol>
+    </server>
+{% if wazuh_agent_mode == 'systemd' %}
+    <config-profile>{{ ansible_facts.distribution | lower }}, {{ ansible_facts.distribution | lower }}{{ ansible_facts.distribution_major_version }}</config-profile>
+{% endif %}
+    <notify_time>10</notify_time>
+    <time-reconnect>60</time-reconnect>
+    <auto_restart>yes</auto_restart>
+    <crypto_method>aes</crypto_method>
+    <enrollment>
+      <enabled>yes</enabled>
+      <manager_address>{{ wazuh_agent_enrollment_address | e }}</manager_address>
+      <port>{{ wazuh_agent_enrollment_port }}</port>
+      <agent_name>{{ wazuh_agent_name | e }}</agent_name>
+      <groups>{{ wazuh_agent_groups | join(',') | e }}</groups>
+{% if wazuh_agent_enrollment_password | length > 0 %}
+      <authorization_pass_path>etc/authd.pass</authorization_pass_path>
+{% endif %}
+    </enrollment>
+  </client>
+
+  <client_buffer>
+    <disabled>no</disabled>
+    <queue_size>5000</queue_size>
+    <events_per_second>500</events_per_second>
+  </client_buffer>
+
+  <!-- Policy monitoring -->
+  <rootcheck>
+    <disabled>{{ yesno(not wazuh_agent_rootcheck_enabled | bool) }}</disabled>
+    <check_files>yes</check_files>
+    <check_trojans>yes</check_trojans>
+    <check_dev>yes</check_dev>
+    <check_sys>yes</check_sys>
+    <check_pids>yes</check_pids>
+    <check_ports>yes</check_ports>
+    <check_if>yes</check_if>
+    <frequency>43200</frequency>
+    <rootkit_files>etc/shared/rootkit_files.txt</rootkit_files>
+    <rootkit_trojans>etc/shared/rootkit_trojans.txt</rootkit_trojans>
+    <skip_nfs>yes</skip_nfs>
+    <ignore>/var/lib/containerd</ignore>
+    <ignore>/var/lib/docker/overlay2</ignore>
+  </rootcheck>
+
+  <wodle name="cis-cat">
+    <disabled>yes</disabled>
+    <timeout>1800</timeout>
+    <interval>1d</interval>
+    <scan-on-start>yes</scan-on-start>
+    <java_path>wodles/java</java_path>
+    <ciscat_path>wodles/ciscat</ciscat_path>
+  </wodle>
+
+  <wodle name="osquery">
+    <disabled>yes</disabled>
+    <run_daemon>yes</run_daemon>
+    <log_path>/var/log/osquery/osqueryd.results.log</log_path>
+    <config_path>/etc/osquery/osquery.conf</config_path>
+    <add_labels>yes</add_labels>
+  </wodle>
+
+  <!-- System inventory (also feeds vulnerability detection) -->
+  <wodle name="syscollector">
+    <disabled>{{ yesno(not wazuh_agent_syscollector_enabled | bool) }}</disabled>
+    <interval>1h</interval>
+    <scan_on_start>yes</scan_on_start>
+    <hardware>yes</hardware>
+    <os>yes</os>
+    <network>yes</network>
+    <packages>yes</packages>
+    <ports all="yes">yes</ports>
+    <processes>yes</processes>
+    <synchronization>
+      <max_eps>10</max_eps>
+    </synchronization>
+  </wodle>
+
+  <sca>
+    <enabled>{{ yesno(wazuh_agent_sca_enabled) }}</enabled>
+    <scan_on_start>yes</scan_on_start>
+    <interval>12h</interval>
+    <skip_nfs>yes</skip_nfs>
+  </sca>
+
+  <!-- File integrity monitoring -->
+  <syscheck>
+    <disabled>{{ yesno(not wazuh_agent_syscheck_enabled | bool) }}</disabled>
+    <frequency>{{ wazuh_agent_syscheck_frequency }}</frequency>
+    <scan_on_start>yes</scan_on_start>
+{% for item in wazuh_agent_syscheck_directories %}
+{%   set dir = {'path': item} if item is string else item %}
+    <directories{% for key, value in (dir.attributes | default({})).items() %} {{ key }}="{{ value | e }}"{% endfor %}>{{ (root ~ dir.path) | e }}</directories>
+{% endfor %}
+{% for path in wazuh_agent_syscheck_ignore %}
+    <ignore>{{ (root ~ path) | e }}</ignore>
+{% endfor %}
+    <ignore type="sregex">.log$|.swp$</ignore>
+    <nodiff>{{ root }}/etc/ssl/private.key</nodiff>
+    <skip_nfs>yes</skip_nfs>
+    <skip_dev>yes</skip_dev>
+    <skip_proc>yes</skip_proc>
+    <skip_sys>yes</skip_sys>
+    <process_priority>10</process_priority>
+    <max_eps>50</max_eps>
+    <synchronization>
+      <enabled>yes</enabled>
+      <interval>5m</interval>
+      <max_eps>10</max_eps>
+    </synchronization>
+  </syscheck>
+
+  <!-- Log analysis -->
+{% for file in wazuh_agent_localfiles %}
+  <localfile>
+    <log_format>{{ file.log_format | default('syslog') }}</log_format>
+    <location>{{ (root ~ file.location) | e }}</location>
+  </localfile>
+{% endfor %}
+{% if wazuh_agent_journald_enabled | bool %}
+  <localfile>
+    <log_format>journald</log_format>
+    <location>journald</location>
+  </localfile>
+{% endif %}
+{% if wazuh_agent_command_monitoring_enabled | bool %}
+  <localfile>
+    <log_format>command</log_format>
+    <command>df -P</command>
+    <frequency>360</frequency>
+  </localfile>
+  <localfile>
+    <log_format>full_command</log_format>
+    <command>netstat -tulpn | sed 's/\([[:alnum:]]\+\)\ \+[[:digit:]]\+\ \+[[:digit:]]\+\ \+\(.*\):\([[:digit:]]*\)\ \+\([0-9\.\:\*]\+\).\+\ \([[:digit:]]*\/[[:alnum:]\-]*\).*/\1 \2 == \3 == \4 \5/' | sort -k 4 -g | sed 's/ == \(.*\) ==/:\1/' | sed 1,2d</command>
+    <alias>netstat listening ports</alias>
+    <frequency>360</frequency>
+  </localfile>
+  <localfile>
+    <log_format>full_command</log_format>
+    <command>last -n 20</command>
+    <frequency>360</frequency>
+  </localfile>
+{% endif %}
+  <localfile>
+    <log_format>syslog</log_format>
+    <location>/var/ossec/logs/active-responses.log</location>
+  </localfile>
+
+  <!-- Active response -->
+  <active-response>
+    <disabled>{{ yesno(not wazuh_agent_active_response_enabled | bool) }}</disabled>
+    <ca_store>etc/wpk_root.pem</ca_store>
+    <ca_verification>yes</ca_verification>
+  </active-response>
+
+  <logging>
+    <log_format>plain</log_format>
+  </logging>
+</ossec_config>
+{% if wazuh_agent_extra_config | length > 0 %}
+
+<ossec_config>
+{{ wazuh_agent_extra_config | trim | indent(2, first=true) }}
+</ossec_config>
+{% endif %}

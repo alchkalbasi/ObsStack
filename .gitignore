@@ -1,11 +1,15 @@
 # inventory dir
 inventories/
 
-# ansible config file
-./ansible.cfg
-
 # ansible runtime state
 .ansible/
+*.retry
+
+# collections installed with "ansible-galaxy collection install -p collections"
+collections/ansible_collections/
+
+# vault password files (see vault_identity_list in ansible.cfg)
+.vault/
 
 # python runtime state
 __pycache__/
@@ -16,3 +20,8 @@ __pycache__/
 
 # grafana dashboards
 roles/grafana/files/dashboards/*.json
+
+# OS and editor files
+.DS_Store
+.vscode/
+.idea/

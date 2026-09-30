@@ -1,0 +1,23 @@
+---
+- name: Validate Wazuh settings
+  ansible.builtin.import_tasks: validate.yml
+  tags:
+    - security
+    - wazuh
+    - wazuh-install
+    - wazuh-deploy
+
+- name: Install Wazuh Compose project
+  ansible.builtin.import_tasks: install.yml
+  tags:
+    - security
+    - wazuh
+    - wazuh-install
+
+- name: Start and verify Wazuh
+  ansible.builtin.import_tasks: deploy.yml
+  tags:
+    - security
+    - wazuh
+    - wazuh-install
+    - wazuh-deploy

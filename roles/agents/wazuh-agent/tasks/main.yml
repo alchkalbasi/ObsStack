@@ -1,0 +1,20 @@
+---
+- name: Validate Wazuh agent settings
+  ansible.builtin.import_tasks: validate.yml
+  tags:
+    - security
+    - wazuh-agent
+
+- name: Install Wazuh agent as a systemd service
+  ansible.builtin.import_tasks: systemd.yml
+  when: wazuh_agent_mode == 'systemd'
+  tags:
+    - security
+    - wazuh-agent
+
+- name: Run Wazuh agent with Docker Compose
+  ansible.builtin.import_tasks: docker.yml
+  when: wazuh_agent_mode == 'docker'
+  tags:
+    - security
+    - wazuh-agent

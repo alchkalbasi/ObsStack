@@ -1,0 +1,114 @@
+---
+- name: Persist vm.max_map_count for the Wazuh indexer
+  ansible.builtin.copy:
+    content: "vm.max_map_count = 262144\n"
+    dest: /etc/sysctl.d/99-wazuh.conf
+    owner: root
+    group: root
+    mode: "0644"
+  register: wazuh_sysctl
+  when: wazuh_manage_sysctl
+
+# Not a handler: it must apply before the indexer starts, not at the end of the play.
+- name: Apply vm.max_map_count  # noqa: no-handler
+  ansible.builtin.command: sysctl -p /etc/sysctl.d/99-wazuh.conf
+  changed_when: true
+  when: wazuh_sysctl is changed
+
+- name: Create Wazuh project directories
+  ansible.builtin.file:
+    path: "{{ wazuh_dir }}/{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+  loop:
+    - ""
+    - config/wazuh_cluster
+    - config/wazuh_indexer
+    - config/wazuh_dashboard
+
+- name: Install Wazuh Compose file
+  ansible.builtin.copy:
+    src: wazuh/compose.yml
+    dest: "{{ wazuh_dir }}/compose.yml"
+    owner: root
+    group: root
+    mode: "0644"
+
+# password_hash('bcrypt') is evaluated on the controller while rendering the
+# indexer users file. Ensure its Python dependencies are available first.
+- name: Check controller dependencies for Wazuh password hashing
+  ansible.builtin.command:
+    argv:
+      - "{{ ansible_playbook_python }}"
+      - -c
+      - "import passlib, bcrypt"
+  register: wazuh_hash_dependencies
+  changed_when: false
+  failed_when: false
+  delegate_to: localhost
+  become: false
+
+- name: Install controller dependencies for Wazuh password hashing
+  ansible.builtin.command:
+    argv:
+      - "{{ ansible_playbook_python }}"
+      - -m
+      - pip
+      - install
+      - passlib
+      - "bcrypt<5"
+  when: wazuh_hash_dependencies.rc != 0
+  changed_when: true
+  delegate_to: localhost
+  become: false
+
+- name: Render Wazuh environment file
+  ansible.builtin.template:
+    src: wazuh/.env.j2
+    dest: "{{ wazuh_dir }}/.env"
+    owner: root
+    group: root
+    mode: "0600"
+  diff: false
+  no_log: true
+
+# These files are bind-mounted, so the containers are recreated when they change.
+- name: Install Wazuh component configuration
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: "{{ wazuh_dir }}/config/{{ item.dest }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - {src: wazuh/config/certs.yml, dest: certs.yml}
+    - {src: "{{ wazuh_manager_config }}", dest: wazuh_cluster/wazuh_manager.conf}
+    - {src: wazuh/config/wazuh_indexer/wazuh.indexer.yml, dest: wazuh_indexer/wazuh.indexer.yml}
+    - {src: wazuh/config/wazuh_dashboard/opensearch_dashboards.yml, dest: wazuh_dashboard/opensearch_dashboards.yml}
+  loop_control:
+    label: "{{ item.dest }}"
+  register: wazuh_config
+
+- name: Render Wazuh dashboard API connection
+  ansible.builtin.template:
+    src: wazuh/config/wazuh_dashboard/wazuh.yml.j2
+    dest: "{{ wazuh_dir }}/config/wazuh_dashboard/wazuh.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  register: wazuh_dashboard_api
+  diff: false
+  no_log: true
+
+- name: Render Wazuh indexer users
+  ansible.builtin.template:
+    src: wazuh/config/wazuh_indexer/internal_users.yml.j2
+    dest: "{{ wazuh_dir }}/config/wazuh_indexer/internal_users.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  register: wazuh_users
+  diff: false
+  no_log: true

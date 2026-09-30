@@ -1,0 +1,16 @@
+---
+wazuh_version: "4.14.8"
+wazuh_indexer_heap: 2g
+
+# Store these in an Ansible Vault file (e.g. group_vars/wazuh_servers/vault.yml).
+wazuh_indexer_password: "{{ vault_wazuh_indexer_password }}"
+wazuh_dashboard_password: "{{ vault_wazuh_dashboard_password }}"
+wazuh_api_password: "{{ vault_wazuh_api_password }}"
+
+# Agents connect to the host address; the dashboard is served on https://<host>/.
+wazuh_agent_listen: "0.0.0.0:1514"
+wazuh_enrollment_listen: "0.0.0.0:1515"
+wazuh_dashboard_listen: "0.0.0.0:443"
+
+# Optional: ship your own ossec.conf (path on the controller).
+# wazuh_manager_config: "{{ inventory_dir }}/files/wazuh_manager.conf"

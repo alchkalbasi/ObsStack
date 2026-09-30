@@ -1,0 +1,14 @@
+---
+wazuh_agent_version: "4.14.8"
+wazuh_agent_manager_address: 192.0.2.40
+wazuh_agent_groups:
+  - default
+  - linux
+
+# Only if the manager requires an enrollment password (<use_password>yes</use_password>).
+# wazuh_agent_enrollment_password: "{{ vault_wazuh_agent_enrollment_password }}"
+
+# Extra log files to collect (host paths; also correct in docker mode).
+# wazuh_agent_localfiles:
+#   - {location: /var/log/auth.log, log_format: syslog}
+#   - {location: /var/log/nginx/access.log, log_format: apache}

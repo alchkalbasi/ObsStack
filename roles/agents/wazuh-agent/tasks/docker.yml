@@ -1,0 +1,59 @@
+---
+- name: Create Wazuh agent project directories
+  ansible.builtin.file:
+    path: "{{ wazuh_agent_dir }}/{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+  loop:
+    - ""
+    - config
+
+- name: Install Wazuh agent Compose file
+  ansible.builtin.copy:
+    src: docker/compose.yml
+    dest: "{{ wazuh_agent_dir }}/compose.yml"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Render Wazuh agent environment file
+  ansible.builtin.template:
+    src: docker/.env.j2
+    dest: "{{ wazuh_agent_dir }}/.env"
+    owner: root
+    group: root
+    mode: "0600"
+  register: wazuh_agent_env
+  diff: false
+  no_log: true
+
+# Copied into the container on start, so a change needs a recreate.
+- name: Render Wazuh agent configuration
+  ansible.builtin.template:
+    src: "{{ wazuh_agent_config_template }}"
+    dest: "{{ wazuh_agent_dir }}/config/ossec.conf"
+    owner: root
+    group: root
+    mode: "0644"
+  register: wazuh_agent_config
+
+- name: Validate Wazuh agent Compose configuration
+  ansible.builtin.command: docker compose config --quiet
+  args:
+    chdir: "{{ wazuh_agent_dir }}"
+  changed_when: false
+  no_log: true
+
+# The health check passes once the agent reports "connected".
+- name: Start Wazuh agent
+  community.docker.docker_compose_v2:
+    project_src: "{{ wazuh_agent_dir }}"
+    state: present
+    pull: "{{ wazuh_agent_pull_policy }}"
+    remove_orphans: true
+    recreate: "{{ 'always' if wazuh_agent_config is changed or wazuh_agent_env is changed else 'auto' }}"
+    wait: "{{ wazuh_agent_wait_for_connection }}"
+    wait_timeout: "{{ wazuh_agent_connection_timeout }}"
+  no_log: true

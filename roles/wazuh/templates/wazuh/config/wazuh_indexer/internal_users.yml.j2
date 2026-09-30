@@ -1,0 +1,25 @@
+# Managed by Ansible. Local changes will be overwritten.
+# The indexer reads this file on first start only; afterwards Ansible pushes
+# changes with securityadmin.sh. The upstream demo users are intentionally left out.
+{#
+  bcrypt needs a salt; a fixed one derived from host and user keeps this file
+  stable between runs. 22 chars: 21 hex chars plus a valid final padding char.
+#}
+{% macro bcrypt(user, password) -%}
+{{ password | password_hash('bcrypt', salt=((inventory_hostname ~ user) | hash('sha256'))[:21] ~ 'e', rounds=12) }}
+{%- endmacro %}
+_meta:
+  type: "internalusers"
+  config_version: 2
+
+admin:
+  hash: "{{ bcrypt('admin', wazuh_indexer_password) }}"
+  reserved: true
+  backend_roles:
+    - "admin"
+  description: "Wazuh indexer administrator"
+
+kibanaserver:
+  hash: "{{ bcrypt('kibanaserver', wazuh_dashboard_password) }}"
+  reserved: true
+  description: "Wazuh dashboard server user"

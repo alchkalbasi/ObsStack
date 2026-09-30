@@ -1,6 +1,6 @@
 ---
-- name: Configure staging observability exporters
-  hosts: all
+- name: Configure observability exporters
+  hosts: exporters
   gather_facts: true
   become: true
   roles:
@@ -9,8 +9,8 @@
     - observability
     - exporters
 
-- name: Configure staging Prometheus
-  hosts: all
+- name: Configure Prometheus
+  hosts: prometheus_servers
   gather_facts: false
   become: true
   serial: 1
@@ -26,7 +26,7 @@
     - prometheus
 
 - name: Configure Grafana
-  hosts: all
+  hosts: grafana_servers
   gather_facts: false
   become: true
   serial: 1
@@ -42,7 +42,7 @@
     - grafana
 
 - name: Configure Alertmanager
-  hosts: all
+  hosts: alertmanager_servers
   gather_facts: false
   become: true
   pre_tasks:
@@ -55,3 +55,34 @@
   tags:
     - observability
     - alertmanager
+
+# The manager must be up before agents try to enroll.
+- name: Configure Wazuh
+  hosts: all
+  gather_facts: false
+  become: true
+  pre_tasks:
+    - name: Gather Wazuh host facts
+      ansible.builtin.setup:
+      tags:
+        - always
+  roles:
+    - role: wazuh
+  tags:
+    - security
+    - wazuh
+
+- name: Configure Wazuh agents
+  hosts: all
+  gather_facts: false
+  become: true
+  pre_tasks:
+    - name: Gather Wazuh agent host facts
+      ansible.builtin.setup:
+      tags:
+        - always
+  roles:
+    - role: agents/wazuh-agent
+  tags:
+    - security
+    - wazuh-agent

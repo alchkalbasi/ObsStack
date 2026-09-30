@@ -1,0 +1,56 @@
+---
+- name: Validate Wazuh agent settings
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.system | default('') == 'Linux'
+      - wazuh_agent_mode in ['systemd', 'docker']
+      - wazuh_agent_version is match('^4\.[0-9]+\.[0-9]+$')
+      - wazuh_agent_manager_address | length > 0
+      - wazuh_agent_enrollment_address | length > 0
+      - wazuh_agent_manager_port | int in range(1, 65536)
+      - wazuh_agent_enrollment_port | int in range(1, 65536)
+      - wazuh_agent_name is match('^[A-Za-z0-9._-]{2,128}$')
+      - wazuh_agent_groups is sequence and wazuh_agent_groups is not string
+      - wazuh_agent_groups | length > 0
+      - wazuh_agent_enrollment_password is string
+      - "'\n' not in wazuh_agent_enrollment_password"
+      - wazuh_agent_connection_timeout | int > 0
+      - wazuh_agent_syscheck_directories is sequence and wazuh_agent_syscheck_directories is not string
+      - wazuh_agent_localfiles is sequence and wazuh_agent_localfiles is not string
+    fail_msg: >-
+      The Wazuh agent needs a Linux host, wazuh_agent_mode of systemd or docker, a
+      pinned 4.x wazuh_agent_version, wazuh_agent_manager_address, and valid
+      wazuh_agent_* settings (see defaults/main.yml). Gather facts before this role.
+
+- name: Validate systemd mode requirements
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.os_family | default('') == 'Debian'
+      - ansible_facts.service_mgr | default('') == 'systemd'
+    fail_msg: wazuh_agent_mode=systemd supports Debian and Ubuntu hosts running systemd.
+  when: wazuh_agent_mode == 'systemd'
+
+- name: Validate docker mode requirements
+  ansible.builtin.assert:
+    that:
+      - wazuh_agent_dir.startswith('/') and wazuh_agent_dir != '/'
+      - wazuh_agent_host_root.startswith('/') and wazuh_agent_host_root != '/'
+      - wazuh_agent_restart_policy in ['no', 'always', 'on-failure', 'unless-stopped']
+      - wazuh_agent_pull_policy in ['always', 'missing', 'never', 'policy']
+    fail_msg: Set valid wazuh_agent_dir, wazuh_agent_host_root and Compose policies for docker mode.
+  when: wazuh_agent_mode == 'docker'
+
+# Two agents with the same name fight over one manager registration.
+- name: Look for an agent installed in the other mode
+  ansible.builtin.stat:
+    path: "{{ wazuh_agent_dir ~ '/compose.yml' if wazuh_agent_mode == 'systemd' else '/var/ossec/bin/wazuh-control' }}"
+  register: wazuh_agent_other_mode
+
+- name: Refuse to run two Wazuh agents on one host
+  ansible.builtin.assert:
+    that:
+      - not wazuh_agent_other_mode.stat.exists
+    fail_msg: >-
+      A Wazuh agent is already installed on this host in the other mode
+      ({{ wazuh_agent_dir ~ "/compose.yml" if wazuh_agent_mode == "systemd" else "/var/ossec/bin/wazuh-control" }}).
+      Remove it first; see the role README.

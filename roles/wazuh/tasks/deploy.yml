@@ -1,0 +1,56 @@
+---
+- name: Validate Wazuh Compose configuration
+  ansible.builtin.command: docker compose config --quiet
+  args:
+    chdir: "{{ wazuh_dir }}"
+  changed_when: false
+  no_log: true
+
+- name: Generate Wazuh certificates (first run only)
+  ansible.builtin.command: docker compose run --rm wazuh.certs
+  args:
+    chdir: "{{ wazuh_dir }}"
+    creates: "{{ wazuh_dir }}/config/wazuh_indexer_ssl_certs/root-ca.pem"
+
+- name: Start Wazuh and wait until all services are healthy
+  community.docker.docker_compose_v2:
+    project_src: "{{ wazuh_dir }}"
+    state: present
+    pull: "{{ wazuh_pull_policy }}"
+    remove_orphans: true
+    recreate: "{{ 'always' if wazuh_config is changed or wazuh_dashboard_api is changed else 'auto' }}"
+    wait: true
+    wait_timeout: "{{ wazuh_compose_wait_timeout }}"
+  no_log: true
+
+# internal_users.yml is only read when the security index is first created,
+# so later password changes have to be pushed into the running indexer.
+- name: Apply Wazuh indexer users  # noqa: no-handler
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - exec
+      - --no-TTY
+      - --env
+      - JAVA_HOME=/usr/share/wazuh-indexer/jdk
+      - wazuh.indexer
+      - bash
+      - /usr/share/wazuh-indexer/plugins/opensearch-security/tools/securityadmin.sh
+      - -f
+      - /usr/share/wazuh-indexer/config/opensearch-security/internal_users.yml
+      - -t
+      - internalusers
+      - -icl
+      - -nhnv
+      - -h
+      - wazuh.indexer
+      - -cacert
+      - /usr/share/wazuh-indexer/config/certs/root-ca.pem
+      - -cert
+      - /usr/share/wazuh-indexer/config/certs/admin.pem
+      - -key
+      - /usr/share/wazuh-indexer/config/certs/admin-key.pem
+    chdir: "{{ wazuh_dir }}"
+  changed_when: true
+  when: wazuh_users is changed
