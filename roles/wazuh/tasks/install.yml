@@ -36,6 +36,34 @@
     group: root
     mode: "0644"
 
+# password_hash('bcrypt') is evaluated on the controller while rendering the
+# indexer users file. Ensure its Python dependencies are available first.
+- name: Check controller dependencies for Wazuh password hashing
+  ansible.builtin.command:
+    argv:
+      - "{{ ansible_playbook_python }}"
+      - -c
+      - "import passlib, bcrypt"
+  register: wazuh_hash_dependencies
+  changed_when: false
+  failed_when: false
+  delegate_to: localhost
+  become: false
+
+- name: Install controller dependencies for Wazuh password hashing
+  ansible.builtin.command:
+    argv:
+      - "{{ ansible_playbook_python }}"
+      - -m
+      - pip
+      - install
+      - passlib
+      - "bcrypt<5"
+  when: wazuh_hash_dependencies.rc != 0
+  changed_when: true
+  delegate_to: localhost
+  become: false
+
 - name: Render Wazuh environment file
   ansible.builtin.template:
     src: wazuh/.env.j2

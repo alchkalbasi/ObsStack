@@ -58,7 +58,7 @@
 
 # The manager must be up before agents try to enroll.
 - name: Configure Wazuh
-  hosts: wazuh_servers
+  hosts: all
   gather_facts: false
   become: true
   pre_tasks:
@@ -73,7 +73,7 @@
     - wazuh
 
 - name: Configure Wazuh agents
-  hosts: wazuh_agents
+  hosts: all
   gather_facts: false
   become: true
   pre_tasks:

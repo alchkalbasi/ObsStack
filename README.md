@@ -30,12 +30,6 @@ and a standalone playbook.
   ansible-galaxy collection install -r collections/requirements.yml
   ```
 
-- For the Wazuh role, `passlib` and `bcrypt<5` on the controller:
-
-  ```bash
-  pip install passlib 'bcrypt<5'
-  ```
-
 ## Layout
 
 ```text

@@ -52,4 +52,5 @@
       - not wazuh_agent_other_mode.stat.exists
     fail_msg: >-
       A Wazuh agent is already installed on this host in the other mode
-      ({{ wazuh_agent_other_mode.stat.path }}). Remove it first; see the role README.
+      ({{ wazuh_agent_dir ~ "/compose.yml" if wazuh_agent_mode == "systemd" else "/var/ossec/bin/wazuh-control" }}).
+      Remove it first; see the role README.

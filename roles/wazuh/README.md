@@ -27,13 +27,9 @@ lives in named Docker volumes (`wazuh_*`).
 - At least 4 CPUs and 8 GiB RAM for a small deployment.
 - Internet access from the host on the first run: the certificate generator
   downloads the Wazuh cert tool.
-- On the controller: the `community.docker` collection, plus `passlib` and
-  `bcrypt<5`. `password_hash('bcrypt')` needs these to hash the indexer
-  passwords:
-
-  ```bash
-  pip install passlib 'bcrypt<5'
-  ```
+- On the controller: the `community.docker` collection. The role installs
+  `passlib` and `bcrypt<5` into the Python environment running Ansible before
+  it renders the indexer password hashes.
 
 ## Usage
 
