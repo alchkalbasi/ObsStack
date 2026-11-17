@@ -2,7 +2,7 @@
 # Prometheus container and Compose deployment.
 prometheus_version: "3.14.0"
 prometheus_image: "prom/prometheus:v{{ prometheus_version }}"
-prometheus_container_name: prometheus
+prometheus_container_name: "prometheus-{{ inventory_hostname }}-{{ container_group_name }}"
 prometheus_runtime_user: "65534:65534"
 prometheus_config_group: "{{ (prometheus_runtime_user | string).split(':') | last }}"
 prometheus_restart_policy: unless-stopped

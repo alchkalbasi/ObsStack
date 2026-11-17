@@ -25,7 +25,7 @@ exporters_promtail_dir: "{{ exporters_dir }}/promtail"
 exporters_mktxp_dir: "{{ exporters_dir }}/mktxp"
 
 exporters_node_exporter_image: prom/node-exporter:v1.12.1
-exporters_node_exporter_container_name: node-exporter
+exporters_node_exporter_container_name: "node-exporter-{{ inventory_hostname }}-{{ container_group_name }}"
 exporters_node_exporter_restart_policy: unless-stopped
 # Override per host in inventory when Prometheus reaches the exporter through
 # a private interface.
@@ -44,7 +44,7 @@ exporters_node_exporter_log_max_size: 10m
 exporters_node_exporter_log_max_files: "3"
 
 exporters_cadvisor_image: ghcr.io/google/cadvisor:v0.60.5
-exporters_cadvisor_container_name: cadvisor
+exporters_cadvisor_container_name: "cadvisor-{{ inventory_hostname }}-{{ container_group_name }}"
 exporters_cadvisor_restart_policy: unless-stopped
 exporters_cadvisor_bind_ip: "127.0.0.1"
 exporters_cadvisor_web_listen_address: "{{ exporters_cadvisor_bind_ip }}:8080"
@@ -57,7 +57,7 @@ exporters_cadvisor_log_max_size: 10m
 exporters_cadvisor_log_max_files: "3"
 
 exporters_blackbox_exporter_image: quay.io/prometheus/blackbox-exporter:v0.28.0
-exporters_blackbox_exporter_container_name: blackbox-exporter
+exporters_blackbox_exporter_container_name: "blackbox-exporter-{{ inventory_hostname }}-{{ container_group_name }}"
 exporters_blackbox_exporter_restart_policy: unless-stopped
 exporters_blackbox_exporter_bind_ip: "127.0.0.1"
 exporters_blackbox_exporter_web_listen_address: "{{ exporters_blackbox_exporter_bind_ip }}:9115"
@@ -103,7 +103,7 @@ exporters_blackbox_exporter_modules:
 # snmp.yml should be generated with the generator version matching the exporter
 # image. No insecure community string is provided by default.
 exporters_snmp_exporter_image: quay.io/prometheus/snmp-exporter:v0.30.1
-exporters_snmp_exporter_container_name: snmp-exporter
+exporters_snmp_exporter_container_name: "snmp-exporter-{{ inventory_hostname }}-{{ container_group_name }}"
 exporters_snmp_exporter_restart_policy: unless-stopped
 exporters_snmp_exporter_bind_ip: "127.0.0.1"
 exporters_snmp_exporter_web_listen_address: "{{ exporters_snmp_exporter_bind_ip }}:9116"
@@ -124,7 +124,7 @@ exporters_snmp_exporter_healthcheck_start_period: 10s
 # DATA_SOURCE_URI must not contain credentials. Keep the password in Ansible
 # Vault; the role writes it to a file consumed through DATA_SOURCE_PASS_FILE.
 exporters_postgres_exporter_image: quay.io/prometheuscommunity/postgres-exporter:v0.20.1
-exporters_postgres_exporter_container_name: postgres-exporter
+exporters_postgres_exporter_container_name: "postgres-exporter-{{ inventory_hostname }}-{{ container_group_name }}"
 exporters_postgres_exporter_restart_policy: unless-stopped
 exporters_postgres_exporter_bind_ip: "127.0.0.1"
 exporters_postgres_exporter_web_listen_address: "{{ exporters_postgres_exporter_bind_ip }}:9187"
@@ -231,7 +231,7 @@ exporters_heplify_config:
 # Promtail reads host and Docker JSON logs and forwards them to Loki. Override
 # exporters_promtail_config for additional scrape jobs or pipeline stages.
 exporters_promtail_image: grafana/promtail:3.5.8
-exporters_promtail_container_name: promtail
+exporters_promtail_container_name: "promtail-{{ inventory_hostname }}-{{ container_group_name }}"
 exporters_promtail_user: ""
 exporters_promtail_restart_policy: unless-stopped
 exporters_promtail_bind_ip: "127.0.0.1"
@@ -275,7 +275,7 @@ exporters_promtail_config:
 # MKTXP collects RouterOS metrics over the MikroTik API. Each router requires a
 # dedicated API user; keep exporters_mktxp_routers passwords in Ansible Vault.
 exporters_mktxp_image: ghcr.io/akpw/mktxp:1.2.20
-exporters_mktxp_container_name: mktxp
+exporters_mktxp_container_name: "mktxp-{{ inventory_hostname }}-{{ container_group_name }}"
 exporters_mktxp_restart_policy: unless-stopped
 exporters_mktxp_bind_ip: "127.0.0.1"
 exporters_mktxp_web_listen_address: "{{ exporters_mktxp_bind_ip }}:49090"

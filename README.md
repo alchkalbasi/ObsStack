@@ -71,6 +71,21 @@ The plays run in dependency order: exporters, Prometheus, Grafana,
 Alertmanager, then the Wazuh manager before its agents so that agents can
 enroll. Prometheus and Grafana hosts are updated one at a time (`serial: 1`).
 
+## Container names
+
+Every container gets the name `<service>-<inventory_hostname>-<container_group_name>`,
+for example `node-exporter-sentry-respina` or `prometheus-prom-afranet`.
+`container_group_name` is required. Set it once per provider group in
+`group_vars/<group>.yml`:
+
+```yaml
+# inventories/staging/group_vars/respina.yml
+container_group_name: respina
+```
+
+Each role checks that it is set before deploying. To override a single
+container, set its role's `*_container_name` variable.
+
 ## Networking
 
 Grafana joins the external Docker networks `prinet` (internal traffic between

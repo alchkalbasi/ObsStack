@@ -5,6 +5,9 @@ wazuh_version: "4.14.8"
 wazuh_certs_generator_tag: "0.0.4"
 
 wazuh_dir: /opt/services/security/wazuh
+wazuh_manager_container_name: "wazuh-manager-{{ inventory_hostname }}-{{ container_group_name }}"
+wazuh_indexer_container_name: "wazuh-indexer-{{ inventory_hostname }}-{{ container_group_name }}"
+wazuh_dashboard_container_name: "wazuh-dashboard-{{ inventory_hostname }}-{{ container_group_name }}"
 wazuh_restart_policy: unless-stopped
 wazuh_pull_policy: missing
 wazuh_compose_wait_timeout: 600

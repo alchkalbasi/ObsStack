@@ -44,3 +44,6 @@ grafana_provisioning:
 # loki-nginx.json in that directory needs the Loki datasource above; move it out
 # until Loki is deployed, otherwise its panels just show "datasource not found".
 grafana_dashboard_dir: "{{ role_path }}/files/dashboards"
+
+# Containers are named <service>-<inventory_hostname>-<container_group_name>.
+container_group_name: example

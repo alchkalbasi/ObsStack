@@ -12,3 +12,6 @@ wazuh_agent_groups:
 # wazuh_agent_localfiles:
 #   - {location: /var/log/auth.log, log_format: syslog}
 #   - {location: /var/log/nginx/access.log, log_format: apache}
+
+# Containers are named <service>-<inventory_hostname>-<container_group_name>.
+container_group_name: example

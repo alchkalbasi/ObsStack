@@ -59,7 +59,7 @@ See [defaults/main.yml](defaults/main.yml) for all variables.
 | `grafana_dir` | `/opt/services/observability/grafana` | Compose project and bind mounts |
 | `grafana_owner`, `grafana_group` | `ansible_user` | Project and `.env` ownership |
 | `grafana_port` | `3000` | Host port, always bound to loopback |
-| `grafana_container_name` | `grafana` | Container name |
+| `grafana_container_name` | `grafana-<inventory_hostname>-<container_group_name>` | Container name |
 | `grafana_restart_policy` | `unless-stopped` | Docker restart policy |
 | `grafana_pull_policy` | `missing` | Compose image pull policy |
 | `grafana_network1`, `grafana_network2` | `prinet`, `pubnet` | Both external networks, in either order |

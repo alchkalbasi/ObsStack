@@ -19,7 +19,7 @@ x-healthcheck: &healthcheck
 services:
   wazuh.manager:
     image: "wazuh/wazuh-manager:${WAZUH_VERSION:?WAZUH_VERSION must be set}"
-    container_name: wazuh-manager
+    container_name: "${WAZUH_MANAGER_CONTAINER_NAME:-wazuh-manager}"
     hostname: wazuh.manager
     restart: "${WAZUH_RESTART_POLICY:-unless-stopped}"
     ulimits:
@@ -70,7 +70,7 @@ services:
 
   wazuh.indexer:
     image: "wazuh/wazuh-indexer:${WAZUH_VERSION:?WAZUH_VERSION must be set}"
-    container_name: wazuh-indexer
+    container_name: "${WAZUH_INDEXER_CONTAINER_NAME:-wazuh-indexer}"
     hostname: wazuh.indexer
     restart: "${WAZUH_RESTART_POLICY:-unless-stopped}"
     ulimits:
@@ -98,7 +98,7 @@ services:
 
   wazuh.dashboard:
     image: "wazuh/wazuh-dashboard:${WAZUH_VERSION:?WAZUH_VERSION must be set}"
-    container_name: wazuh-dashboard
+    container_name: "${WAZUH_DASHBOARD_CONTAINER_NAME:-wazuh-dashboard}"
     hostname: wazuh.dashboard
     restart: "${WAZUH_RESTART_POLICY:-unless-stopped}"
     ports:

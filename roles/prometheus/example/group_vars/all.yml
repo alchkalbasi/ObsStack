@@ -69,3 +69,6 @@ prometheus_extra_rules:
           severity: page
         annotations:
           summary: Error rate above 2 percent for 10 minutes
+
+# Containers are named <service>-<inventory_hostname>-<container_group_name>.
+container_group_name: example

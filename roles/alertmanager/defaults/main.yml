@@ -2,7 +2,7 @@
 # Alertmanager container and Compose deployment.
 alertmanager_version: "0.34.1"
 alertmanager_image: "prom/alertmanager:v{{ alertmanager_version }}"
-alertmanager_container_name: alertmanager
+alertmanager_container_name: "alertmanager-{{ inventory_hostname }}-{{ container_group_name }}"
 alertmanager_runtime_user: "65534:65534"
 alertmanager_config_group: "{{ (alertmanager_runtime_user | string).split(':') | last }}"
 alertmanager_restart_policy: unless-stopped
