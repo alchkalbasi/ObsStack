@@ -1,7 +1,7 @@
 ---
 # Set the exact DHI runtime tag in inventory; never upgrade implicitly to latest.
 grafana_tag: "13.2"
-grafana_container_name: grafana
+grafana_container_name: "grafana-{{ inventory_hostname }}-{{ container_group_name }}"
 grafana_restart_policy: unless-stopped
 grafana_pull_policy: missing
 grafana_compose_wait_timeout: 120

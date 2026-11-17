@@ -84,7 +84,7 @@ wazuh_agent_hold_package: true
 # docker mode
 wazuh_agent_dir: /opt/services/security/wazuh-agent
 wazuh_agent_image: "wazuh/wazuh-agent:{{ wazuh_agent_version }}"
-wazuh_agent_container_name: wazuh-agent
+wazuh_agent_container_name: "wazuh-agent-{{ inventory_hostname }}-{{ container_group_name }}"
 wazuh_agent_host_root: /host
 wazuh_agent_restart_policy: unless-stopped
 wazuh_agent_pull_policy: missing

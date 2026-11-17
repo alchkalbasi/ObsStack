@@ -61,3 +61,6 @@ alertmanager_receivers:
     email_configs:
       - to: oncall@example.com
         send_resolved: true
+
+# Containers are named <service>-<inventory_hostname>-<container_group_name>.
+container_group_name: example

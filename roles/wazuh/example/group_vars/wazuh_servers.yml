@@ -14,3 +14,6 @@ wazuh_dashboard_listen: "0.0.0.0:443"
 
 # Optional: ship your own ossec.conf (path on the controller).
 # wazuh_manager_config: "{{ inventory_dir }}/files/wazuh_manager.conf"
+
+# Containers are named <service>-<inventory_hostname>-<container_group_name>.
+container_group_name: example

@@ -1,4 +1,17 @@
 ---
+- name: Require container_group_name for container names
+  ansible.builtin.assert:
+    that:
+      - container_group_name is defined
+      - container_group_name is string
+      - container_group_name is match('^[A-Za-z0-9][A-Za-z0-9_.-]*$')
+      - inventory_hostname is match('^[A-Za-z0-9][A-Za-z0-9_.-]*$')
+    fail_msg: >-
+      Containers are named <service>-<inventory_hostname>-<container_group_name>.
+      Set container_group_name (for example in the host's provider group_vars,
+      such as group_vars/respina.yml) using only letters, digits, '_', '.' and '-'.
+    quiet: true
+
 - name: Validate Grafana host and deployment settings
   ansible.builtin.assert:
     that:

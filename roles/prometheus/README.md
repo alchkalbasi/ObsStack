@@ -107,7 +107,7 @@ the container through `community.docker.docker_compose_v2`.
 | --- | --- | --- |
 | `prometheus_version` | `3.14.0` | Version used by the default image tag |
 | `prometheus_image` | `quay.io/prometheus/prometheus:v3.14.0` | Prometheus container image |
-| `prometheus_container_name` | `prometheus` | Container name |
+| `prometheus_container_name` | `prometheus-<inventory_hostname>-<container_group_name>` | Container name |
 | `prometheus_runtime_user` | `65534:65534` | Numeric container UID and GID |
 | `prometheus_pull_policy` | `missing` | Compose image pull policy |
 | `prometheus_compose_wait_timeout` | `120` | Compose health wait timeout in seconds |

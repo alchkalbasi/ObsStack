@@ -5,6 +5,7 @@
   gather_facts: true
   vars:
     prometheus_bind_ip: "0.0.0.0"
+    container_group_name: molecule
     prometheus_cluster: molecule
     prometheus_region: local
     prometheus_shard_count: 2

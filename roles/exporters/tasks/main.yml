@@ -1,6 +1,25 @@
 ---
 # main task file for exporters role
 
+- name: Require container_group_name for container names
+  ansible.builtin.assert:
+    that:
+      - container_group_name is defined
+      - container_group_name is string
+      - container_group_name is match('^[A-Za-z0-9][A-Za-z0-9_.-]*$')
+      - inventory_hostname is match('^[A-Za-z0-9][A-Za-z0-9_.-]*$')
+    fail_msg: >-
+      Containers are named <service>-<inventory_hostname>-<container_group_name>.
+      Set container_group_name (for example in the host's provider group_vars,
+      such as group_vars/respina.yml) using only letters, digits, '_', '.' and '-'.
+    quiet: true
+  when: >-
+    exporters_enabled | dict2items
+    | rejectattr('key', 'equalto', 'heplify')
+    | map(attribute='value') | map('bool') | select | list | length > 0
+  tags:
+    - always
+
 - name: Configure Node Exporter
   ansible.builtin.import_tasks: node.yml
   when: exporters_enabled.node_exporter | default(false) | bool

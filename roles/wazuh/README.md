@@ -59,6 +59,7 @@ See [defaults/main.yml](defaults/main.yml).
 | `wazuh_version` | `4.14.8` | Image tag for manager, indexer and dashboard |
 | `wazuh_certs_generator_tag` | `0.0.4` | `wazuh/wazuh-certs-generator` tag for that release |
 | `wazuh_dir` | `/opt/services/security/wazuh` | Compose project directory |
+| `wazuh_manager_container_name`, `wazuh_indexer_container_name`, `wazuh_dashboard_container_name` | `wazuh-{manager,indexer,dashboard}-<inventory_hostname>-<container_group_name>` | Container names |
 | `wazuh_indexer_heap` | `1g` | Indexer JVM heap |
 | `wazuh_agent_listen` | `0.0.0.0:1514` | Agent events |
 | `wazuh_enrollment_listen` | `0.0.0.0:1515` | Agent enrollment |
